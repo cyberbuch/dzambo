@@ -698,3 +698,13 @@ diesel::table! {
         created_at -> Timestamptz,
     }
 }
+
+diesel::table! {
+    fs_line_formulas (id) {
+        id -> Int8,
+        company_id -> Int8,
+        statement -> Text,
+        line_code -> Text,
+        formula -> Text,
+    }
+}

@@ -133,7 +133,14 @@ pub fn router(st: AppState) -> Router {
             "/v1/locations",
             get(routes::stockops::list_locations).post(routes::stockops::create_location),
         )
-        .route("/v1/fs/formulas", get(routes::compat::fs_formulas))
+        .route("/v1/fs/lines", get(routes::fsform::lines))
+        .route(
+            "/v1/fs/formulas",
+            get(routes::fsform::index).put(routes::fsform::put),
+        )
+        .route("/v1/fs/formulas/defaults", post(routes::fsform::defaults))
+        .route("/v1/fs/formulas/validate", post(routes::fsform::validate))
+        .route("/v1/fs/formulas/clear", post(routes::fsform::clear))
         .route(
             "/v1/system-settings",
             get(routes::system_settings::index).put(routes::system_settings::update),

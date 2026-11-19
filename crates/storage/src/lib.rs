@@ -12,6 +12,7 @@ pub mod counterparts;
 pub mod dashboard;
 pub mod dividends;
 pub mod fixed_assets;
+pub mod fsform;
 pub mod idocs;
 pub mod invoices;
 pub mod journal;

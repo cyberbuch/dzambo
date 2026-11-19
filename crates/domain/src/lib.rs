@@ -3,6 +3,8 @@
 
 pub mod auth;
 pub mod dto;
+pub mod fsform;
+pub mod fsnom;
 pub mod noms;
 
 #[cfg(test)]

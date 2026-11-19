@@ -23,13 +23,6 @@ pub async fn nomenclatures(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     Ok(crate::routes::nomenclatures::index(q).await)
 }
-pub async fn fs_formulas(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
 pub async fn movement_mappings(
     State(st): State<AppState>,
     Extension(s): Extension<Session>,
