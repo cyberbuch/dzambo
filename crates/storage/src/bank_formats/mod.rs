@@ -25,8 +25,12 @@ pub struct Parsed {
 
 /// Разпознава формата по съдържанието. CSV се обработва отделно.
 pub fn detect(content: &str) -> Option<&'static str> {
-    if content.contains(":61:") || content.contains(":25:") { return Some("mt940"); }
-    if content.contains("<Ntry") || content.contains("camt.053") { return Some("camt053"); }
+    if content.contains(":61:") || content.contains(":25:") {
+        return Some("mt940");
+    }
+    if content.contains("<Ntry") || content.contains("camt.053") {
+        return Some("camt053");
+    }
     None
 }
 

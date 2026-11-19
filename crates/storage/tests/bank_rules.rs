@@ -1,6 +1,6 @@
 //! Сонда на нормализация и съвпадение на правила.
 
-use storage::bank_rules::{fold, matches_keywords, direction_matches};
+use storage::bank_rules::{direction_matches, fold, matches_keywords};
 
 #[test]
 fn fold_transliterates() {
@@ -12,7 +12,10 @@ fn fold_transliterates() {
 #[test]
 fn keywords_match_cyr_and_lat() {
     assert!(matches_keywords("POS покупка с карта", "POS,ПОС"));
-    assert!(matches_keywords("месечна такса поддръжка", "bank fee,месечна такса"));
+    assert!(matches_keywords(
+        "месечна такса поддръжка",
+        "bank fee,месечна такса"
+    ));
     assert!(!matches_keywords("получен превод", "теглене,atm"));
 }
 

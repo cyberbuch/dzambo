@@ -178,6 +178,38 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
                 if !vat_total.is_zero() {
                     new_lines.push(mk(&vat_sale, "credit", signed(&vat_total)));
                 }
+                // Инвентарни стоки: FIFO консумация + COGS (Дт разходна / Кт запасна).
+                for line in &lines {
+                    let Some((p, _e)) = prod_map.get(&line.product_id) else {
+                        continue;
+                    };
+                    if !p.is_inventory || line.quantity.is_zero() {
+                        continue;
+                    }
+                    let cogs = storage::stock::consume_fifo(
+                        tx,
+                        inv.company_id,
+                        line.product_id,
+                        line.quantity.clone(),
+                    )
+                    .await?;
+                    if cogs.is_zero() {
+                        continue;
+                    }
+                    let inv_number = if p.inventory_account_id > 0 {
+                        accts
+                            .values()
+                            .find(|a| a.id == p.inventory_account_id)
+                            .map(|a| a.number.clone())
+                            .unwrap_or_else(|| "302".into())
+                    } else {
+                        "302".into()
+                    };
+                    let exp_acct = std_acct(tx, inv.company_id, "602").await?;
+                    let inv_acct = std_acct(tx, inv.company_id, &inv_number).await?;
+                    new_lines.push(mk(&exp_acct, "debit", signed(&cogs)));
+                    new_lines.push(mk(&inv_acct, "credit", signed(&cogs)));
+                }
             }
             _ => {
                 for line in &lines {
@@ -227,7 +259,8 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
         let entry_id = journal::insert_entry(tx, &entry, &new_lines).await?;
         invoices::set_status(tx, invoice_id, "posted", entry_id).await?;
         if inv.direction == "in" {
-            storage::stock::lots_from_invoice(tx, inv.company_id, inv.id, &lines, inv.issue_date).await?;
+            storage::stock::lots_from_invoice(tx, inv.company_id, inv.id, &lines, inv.issue_date)
+                .await?;
         }
         journal::entry_with_lines(tx, entry_id)
             .await?

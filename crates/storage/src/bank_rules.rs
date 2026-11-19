@@ -6,7 +6,39 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use crate::{accounts, schema::bank_matching_rules, StorageError};
 
 const CYR: [(&str, &str); 33] = [
-    ("а","a"),("б","b"),("в","v"),("г","g"),("д","d"),("е","e"),("ж","zh"),("з","z"),("и","i"),("й","y"),("к","k"),("л","l"),("м","m"),("н","n"),("о","o"),("п","p"),("р","r"),("с","s"),("т","t"),("у","u"),("ф","f"),("х","h"),("ц","ts"),("ч","ch"),("ш","sh"),("щ","sht"),("ъ","a"),("ь",""),("ю","yu"),("я","ya"),("э","e"),("ы","y"),("ё","e"),
+    ("а", "a"),
+    ("б", "b"),
+    ("в", "v"),
+    ("г", "g"),
+    ("д", "d"),
+    ("е", "e"),
+    ("ж", "zh"),
+    ("з", "z"),
+    ("и", "i"),
+    ("й", "y"),
+    ("к", "k"),
+    ("л", "l"),
+    ("м", "m"),
+    ("н", "n"),
+    ("о", "o"),
+    ("п", "p"),
+    ("р", "r"),
+    ("с", "s"),
+    ("т", "t"),
+    ("у", "u"),
+    ("ф", "f"),
+    ("х", "h"),
+    ("ц", "ts"),
+    ("ч", "ch"),
+    ("ш", "sh"),
+    ("щ", "sht"),
+    ("ъ", "a"),
+    ("ь", ""),
+    ("ю", "yu"),
+    ("я", "ya"),
+    ("э", "e"),
+    ("ы", "y"),
+    ("ё", "e"),
 ];
 
 pub fn fold(text: &str) -> String {
@@ -39,7 +71,11 @@ pub fn matches_keywords(text: &str, keywords: &str) -> bool {
 
 pub fn direction_matches(direction: &str, amount: &str) -> bool {
     let v: f64 = amount.parse().unwrap_or(0.0);
-    match direction { "debit" => v < 0.0, "credit" => v > 0.0, _ => true }
+    match direction {
+        "debit" => v < 0.0,
+        "credit" => v > 0.0,
+        _ => true,
+    }
 }
 
 #[derive(Queryable, Selectable, Debug, Clone)]
@@ -56,21 +92,46 @@ pub struct Rule {
     pub counterpart_id: i64,
 }
 
-pub async fn list(conn: &mut AsyncPgConnection, company_id: i64) -> Result<Vec<Rule>, StorageError> {
-    bank_matching_rules::table.filter(bank_matching_rules::company_id.eq(company_id))
-        .order((bank_matching_rules::priority.desc(), bank_matching_rules::id.asc()))
-        .select(Rule::as_select()).load(conn).await.map_err(StorageError::from)
+pub async fn list(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+) -> Result<Vec<Rule>, StorageError> {
+    bank_matching_rules::table
+        .filter(bank_matching_rules::company_id.eq(company_id))
+        .order((
+            bank_matching_rules::priority.desc(),
+            bank_matching_rules::id.asc(),
+        ))
+        .select(Rule::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
 }
 
 /// Първото активно правило, което съвпада по посока и ключови думи (най-висок приоритет).
 pub fn find_rule<'a>(rules: &'a [Rule], text: &str, amount: &str) -> Option<&'a Rule> {
-    rules.iter()
-        .filter(|r| r.is_active && direction_matches(&r.direction, amount) && matches_keywords(text, &r.keywords))
+    rules
+        .iter()
+        .filter(|r| {
+            r.is_active
+                && direction_matches(&r.direction, amount)
+                && matches_keywords(text, &r.keywords)
+        })
         .max_by_key(|r| r.priority)
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn create(conn: &mut AsyncPgConnection, company_id: i64, name: &str, keywords: &str, direction: &str, priority: i32, is_active: bool, account_id: i64, counterpart_id: i64) -> Result<Rule, StorageError> {
+pub async fn create(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    name: &str,
+    keywords: &str,
+    direction: &str,
+    priority: i32,
+    is_active: bool,
+    account_id: i64,
+    counterpart_id: i64,
+) -> Result<Rule, StorageError> {
     diesel::insert_into(bank_matching_rules::table)
         .values((
             bank_matching_rules::company_id.eq(company_id),
@@ -81,11 +142,17 @@ pub async fn create(conn: &mut AsyncPgConnection, company_id: i64, name: &str, k
             bank_matching_rules::is_active.eq(is_active),
             bank_matching_rules::account_id.eq(account_id),
             bank_matching_rules::counterpart_id.eq(counterpart_id),
-        )).returning(Rule::as_returning()).get_result(conn).await.map_err(StorageError::from)
+        ))
+        .returning(Rule::as_returning())
+        .get_result(conn)
+        .await
+        .map_err(StorageError::from)
 }
 
 pub async fn delete(conn: &mut AsyncPgConnection, id: i64) -> Result<(), StorageError> {
-    diesel::delete(bank_matching_rules::table.find(id)).execute(conn).await?;
+    diesel::delete(bank_matching_rules::table.find(id))
+        .execute(conn)
+        .await?;
     Ok(())
 }
 
@@ -98,16 +165,24 @@ const DEFAULTS: &[(&str, &str, &str, &[&str], i32)] = &[
     ("Аванси", "аванс,avans,advance", "debit", &["402"], 50),
 ];
 
-pub async fn seed_defaults(conn: &mut AsyncPgConnection, company_id: i64) -> Result<i64, StorageError> {
+pub async fn seed_defaults(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+) -> Result<i64, StorageError> {
     let existing = list(conn, company_id).await?;
     let mut n = 0i64;
     for (name, keywords, direction, codes, priority) in DEFAULTS {
-        if existing.iter().any(|r| r.name == *name) { continue; }
+        if existing.iter().any(|r| r.name == *name) {
+            continue;
+        }
         let mut account_id = 0i64;
         if let Some(code) = codes.first() {
             account_id = accounts::get_or_create(conn, company_id, code).await?.id;
         }
-        create(conn, company_id, name, keywords, direction, *priority, true, account_id, 0).await?;
+        create(
+            conn, company_id, name, keywords, direction, *priority, true, account_id, 0,
+        )
+        .await?;
         n += 1;
     }
     Ok(n)

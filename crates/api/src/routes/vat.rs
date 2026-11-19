@@ -50,7 +50,11 @@ async fn rows(
     }
     let (_u, company) = active_company(st, &session.claims.sub).await?;
     let mut c = st.pool.get().await.map_err(|_| internal())?;
-    let vat_type = if direction == "out" { "sales" } else { "purchase" };
+    let vat_type = if direction == "out" {
+        "sales"
+    } else {
+        "purchase"
+    };
     let aggs = storage::journal::vat_rows(&mut c, company.id, vat_type, period).await?;
     let cps = storage::counterparts::list(&mut c, company.id).await?;
     let map: std::collections::HashMap<i64, String> =

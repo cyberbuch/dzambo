@@ -606,7 +606,9 @@ pub struct BankRuleDto {
     pub counterpart_id: i64,
 }
 
-fn default_any() -> String { "any".into() }
+fn default_any() -> String {
+    "any".into()
+}
 
 #[derive(Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -631,7 +633,9 @@ pub struct AssetDto {
     pub status: String,
 }
 
-fn default_active() -> String { "active".into() }
+fn default_active() -> String {
+    "active".into()
+}
 
 #[derive(Serialize, TS)]
 #[ts(export)]

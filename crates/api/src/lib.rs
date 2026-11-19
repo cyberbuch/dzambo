@@ -149,23 +149,62 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/vat/sales", get(routes::vat::sales))
         .route("/v1/vat/purchases", get(routes::vat::purchases))
         .route("/v1/vat/file", get(routes::vat::file))
-        .route("/v1/opening-balances", get(routes::opening::list).put(routes::opening::save))
-        .route("/v1/opening-balances/{id}", axum::routing::delete(routes::opening::delete))
-        .route("/v1/closing-operations/preview", get(routes::closing::preview))
+        .route(
+            "/v1/opening-balances",
+            get(routes::opening::list).put(routes::opening::save),
+        )
+        .route(
+            "/v1/opening-balances/{id}",
+            axum::routing::delete(routes::opening::delete),
+        )
+        .route(
+            "/v1/closing-operations/preview",
+            get(routes::closing::preview),
+        )
         .route("/v1/closing-operations/run", post(routes::closing::run))
-        .route("/v1/bank-accounts", get(routes::banks::accounts).post(routes::banks::create_account))
+        .route(
+            "/v1/bank-accounts",
+            get(routes::banks::accounts).post(routes::banks::create_account),
+        )
         .route("/v1/bank-transactions", get(routes::banks::transactions))
         .route("/v1/bank-transactions/import", post(routes::banks::import))
         .route("/v1/bank-transactions/{id}/post", post(routes::banks::post))
-        .route("/v1/bank-matching-rules", get(routes::bank_rules::index).post(routes::bank_rules::create))
-        .route("/v1/bank-matching-rules/{id}", axum::routing::delete(routes::bank_rules::delete))
-        .route("/v1/bank-matching-rules/defaults", post(routes::bank_rules::defaults))
-        .route("/v1/bank-matching-rules/preview", post(routes::bank_rules::preview))
-        .route("/v1/bank-matching-rules/auto-allocate", post(routes::bank_rules::auto_allocate))
-        .route("/v1/fixed-assets", get(routes::fixed_assets::index).post(routes::fixed_assets::create))
-        .route("/v1/fixed-assets/{id}", axum::routing::delete(routes::fixed_assets::delete))
-        .route("/v1/fixed-assets/depreciation/preview", post(routes::fixed_assets::preview))
-        .route("/v1/fixed-assets/depreciation/post", post(routes::fixed_assets::post_dep))
+        .route(
+            "/v1/bank-matching-rules",
+            get(routes::bank_rules::index).post(routes::bank_rules::create),
+        )
+        .route(
+            "/v1/bank-matching-rules/{id}",
+            axum::routing::delete(routes::bank_rules::delete),
+        )
+        .route(
+            "/v1/bank-matching-rules/defaults",
+            post(routes::bank_rules::defaults),
+        )
+        .route(
+            "/v1/bank-matching-rules/preview",
+            post(routes::bank_rules::preview),
+        )
+        .route(
+            "/v1/bank-matching-rules/auto-allocate",
+            post(routes::bank_rules::auto_allocate),
+        )
+        .route(
+            "/v1/fixed-assets",
+            get(routes::fixed_assets::index).post(routes::fixed_assets::create),
+        )
+        .route(
+            "/v1/fixed-assets/{id}",
+            axum::routing::delete(routes::fixed_assets::delete),
+        )
+        .route(
+            "/v1/fixed-assets/depreciation/preview",
+            post(routes::fixed_assets::preview),
+        )
+        .route(
+            "/v1/fixed-assets/depreciation/post",
+            post(routes::fixed_assets::post_dep),
+        )
         .route("/v1/stock/report", get(routes::stock::report))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
