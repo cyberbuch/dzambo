@@ -708,3 +708,18 @@ diesel::table! {
         formula -> Text,
     }
 }
+
+diesel::table! {
+    saft_account_mappings (id) {
+        id -> Int8,
+        company_id -> Int8,
+        kind -> Text,
+        type_code -> Text,
+        debit_account -> Text,
+        credit_account -> Text,
+        debit_analytical -> Text,
+        credit_analytical -> Text,
+        description -> Text,
+        is_active -> Bool,
+    }
+}

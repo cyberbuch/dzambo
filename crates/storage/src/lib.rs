@@ -27,6 +27,7 @@ pub mod related;
 pub mod schema;
 pub mod seed;
 pub mod settings;
+pub mod smap;
 pub mod stock;
 pub mod stock_docs;
 pub mod stock_replay;

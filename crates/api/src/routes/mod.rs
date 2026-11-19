@@ -24,6 +24,7 @@ pub mod products;
 pub mod rates;
 pub mod related;
 pub mod settings;
+pub mod smap;
 pub mod stock;
 pub mod stock_docs;
 pub mod stockops;

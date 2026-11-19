@@ -62,7 +62,15 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/saft/nomenclatures", get(routes::compat::nomenclatures))
         .route(
             "/v1/saft/movement-mappings",
-            get(routes::compat::movement_mappings),
+            get(routes::smap::index).post(routes::smap::create),
+        )
+        .route(
+            "/v1/saft/movement-mappings/defaults",
+            post(routes::smap::defaults),
+        )
+        .route(
+            "/v1/saft/movement-mappings/{id}",
+            axum::routing::patch(routes::smap::update).delete(routes::smap::delete),
         )
         .route("/v1/exchange-rates", get(routes::rates::index))
         .route("/v1/exchange-rates/rate", get(routes::rates::rate))
