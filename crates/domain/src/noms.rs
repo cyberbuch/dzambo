@@ -89,3 +89,50 @@ pub fn units(search: Option<&str>) -> Vec<NapUnit> {
         .cloned()
         .collect()
 }
+
+/// Всички видове номенклатури от каталога на НАП.
+pub const KINDS: [&str; 11] = [
+    "stock_movements",
+    "asset_movements",
+    "tax_regimes",
+    "payment_methods",
+    "invoice_types",
+    "tax_types",
+    "tax_codes",
+    "product_types",
+    "units",
+    "regions",
+    "accounts",
+];
+
+/// Сурови записи (pipe-разделени) за даден вид.
+pub fn entries(kind: &str) -> &'static Vec<String> {
+    static CACHE: OnceLock<std::collections::HashMap<&'static str, Vec<String>>> = OnceLock::new();
+    let map = CACHE.get_or_init(|| {
+        let mut m = std::collections::HashMap::new();
+        for k in KINDS {
+            m.insert(
+                k,
+                catalog()[k]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            );
+        }
+        m
+    });
+    map.get(kind)
+        .unwrap_or_else(|| panic!("непознат вид номенклатура: {kind}"))
+}
+
+/// Мапинг на сметка към НОМЕНКЛАТУРА (НАП) код: accounts.kind.
+pub fn nap_account_code(number: &str) -> Option<String> {
+    accounts()
+        .iter()
+        .find(|a| a.code == number)
+        .map(|a| a.code.clone())
+}

@@ -217,6 +217,8 @@ pub fn router(st: AppState) -> Router {
             get(routes::dividends::index).post(routes::dividends::create),
         )
         .route("/v1/saft/export", axum::routing::get(saft::export))
+        .route("/v1/nomenclatures", get(routes::nomenclatures::index))
+        .route("/v1/nomenclature-kinds", get(routes::nomenclatures::kinds))
         .route(
             "/v1/recipes",
             get(routes::mfg::recipes).post(routes::mfg::create_recipe),

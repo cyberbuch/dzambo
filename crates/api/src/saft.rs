@@ -5,7 +5,7 @@ use axum::{
     http::header,
     response::{IntoResponse, Response},
 };
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, Zero};
 use chrono;
 
 use crate::errors::ApiError;
@@ -324,7 +324,11 @@ pub async fn monthly_xml(
             t("nsSAFT:AddressType", "StreetAddress")
         ));
         x.push_str("\t\t\t\t\t</nsSAFT:Address>\n");
-        x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:RelatedParty", "N")));
+
+        x.push_str("\t\t\t\t<nsSAFT:BankAccount>\n");
+        x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:IBANNumber", "")));
+        x.push_str("\t\t\t\t</nsSAFT:BankAccount>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:RelatedParty", "N")));
         x.push_str("\t\t\t\t</nsSAFT:CompanyStructure>\n");
         x.push_str(&format!(
             "\t\t\t\t{}\n",
@@ -338,10 +342,6 @@ pub async fn monthly_xml(
         x.push_str(&format!(
             "\t\t\t\t{}\n",
             tn("nsSAFT:OpeningDebitBalance", "0.00")
-        ));
-        x.push_str(&format!(
-            "\t\t\t\t{}\n",
-            tn("nsSAFT:ClosingDebitBalance", "0.00")
         ));
         x.push_str(&format!(
             "\t\t\t\t{}\n",
@@ -371,6 +371,10 @@ pub async fn monthly_xml(
             t("nsSAFT:AddressType", "StreetAddress")
         ));
         x.push_str("\t\t\t\t\t</nsSAFT:Address>\n");
+        x.push_str("\t\t\t\t<nsSAFT:BankAccount>\n");
+        x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:IBANNumber", "")));
+        x.push_str("\t\t\t\t</nsSAFT:BankAccount>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:RelatedParty", "N")));
         x.push_str("\t\t\t\t</nsSAFT:CompanyStructure>\n");
         x.push_str(&format!(
             "\t\t\t\t{}\n",
@@ -543,6 +547,16 @@ pub async fn monthly_xml(
             ));
             body.push_str(&format!(
                 "\t\t\t\t\t{}\n",
+                tn("nsSAFT:ValueDate", &e.entry_date.to_string())
+            ));
+            body.push_str(&format!(
+                "\t\t\t\t\t{}\n",
+                t("nsSAFT:SourceDocumentID", &e.document_number)
+            ));
+            body.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:CustomerID", "0")));
+            body.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:SupplierID", "0")));
+            body.push_str(&format!(
+                "\t\t\t\t\t{}\n",
                 t("nsSAFT:Description", &l.account_name)
             ));
             if l.direction == "debit" {
@@ -576,6 +590,31 @@ pub async fn monthly_xml(
                 ));
                 body.push_str("\t\t\t\t\t</nsSAFT:CreditAmount>\n");
             }
+            body.push_str("\t\t\t\t<nsSAFT:TaxInformation>\n");
+            body.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:TaxType", "")));
+            body.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:TaxCode", "")));
+            body.push_str(&format!("\t\t\t\t\t{}\n", tn("nsSAFT:TaxPercentage", "0")));
+            body.push_str(&format!("\t\t\t\t\t{}\n", tn("nsSAFT:TaxBase", "0")));
+            body.push_str("\t\t\t\t\t<nsSAFT:TaxAmount>\n");
+            body.push_str(&format!("\t\t\t\t\t\t{}\n", tn("nsSAFT:Amount", "0.00")));
+            body.push_str(&format!(
+                "\t\t\t\t\t\t{}\n",
+                t("nsSAFT:CurrencyCode", "EUR")
+            ));
+            body.push_str(&format!(
+                "\t\t\t\t\t\t{}\n",
+                tn("nsSAFT:CurrencyAmount", "0.00")
+            ));
+            body.push_str("\t\t\t\t\t</nsSAFT:TaxAmount>\n");
+            body.push_str(&format!(
+                "\t\t\t\t\t{}\n",
+                t("nsSAFT:TaxExemptionReason", "")
+            ));
+            body.push_str(&format!(
+                "\t\t\t\t\t{}\n",
+                t("nsSAFT:TaxDeclarationPeriod", "")
+            ));
+            body.push_str("\t\t\t\t</nsSAFT:TaxInformation>\n");
             body.push_str("\t\t\t\t</nsSAFT:TransactionLine>\n");
         }
         body.push_str("\t\t\t</nsSAFT:Transaction>\n");
@@ -610,8 +649,135 @@ pub async fn monthly_xml(
     let purchases: Vec<&Invoice> = inv_month.iter().filter(|i| i.direction == "in").collect();
     for (section, list, counterpart_kind, account_id) in [
         ("SalesInvoices", &sales, "Customer", "411"),
+        ("Payments", &Vec::<&Invoice>::new(), "", ""),
         ("PurchaseInvoices", &purchases, "Supplier", "401"),
     ] {
+        if section == "Payments" {
+            // Плащания от банкови транзакции за месеца.
+            let mut txs: Vec<storage::banks::BankTransaction> = Vec::new();
+            for ba in storage::banks::accounts(conn, company_id).await? {
+                for t in storage::banks::transactions(conn, company_id, ba.id).await? {
+                    if t.tx_date.to_string() >= start.clone() && t.tx_date.to_string() < end.clone()
+                    {
+                        txs.push(t);
+                    }
+                }
+            }
+            let total: BigDecimal = txs.iter().map(|t| t.amount.abs()).sum();
+            x.push_str("\t\t<nsSAFT:Payments>\n");
+            x.push_str(&format!(
+                "\t\t\t{}\n",
+                tn("nsSAFT:NumberOfEntries", &txs.len().to_string())
+            ));
+            x.push_str(&format!(
+                "\t\t\t{}\n",
+                tn("nsSAFT:TotalDebit", &money(&total))
+            ));
+            x.push_str(&format!(
+                "\t\t\t{}\n",
+                tn("nsSAFT:TotalCredit", &money(&total))
+            ));
+            if txs.is_empty() {
+                x.push_str("\t\t\t<nsSAFT:Payment>\n");
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    t("nsSAFT:PaymentRefNo", "NO-MOVEMENT")
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:Period", &month.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:PeriodYear", &year.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    t("nsSAFT:Description", "Няма движения")
+                ));
+                x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:TransactionID", "0")));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:TransactionDate", &start[..10])
+                ));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:PaymentMethod", "03")));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SystemID", "dzambo")));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SourceID", "dzambo")));
+                x.push_str("\t\t\t</nsSAFT:Payment>\n");
+            }
+            for p in &txs {
+                x.push_str("\t\t\t<nsSAFT:Payment>\n");
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    t("nsSAFT:PaymentRefNo", &p.reference)
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:Period", &month.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:PeriodYear", &year.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:TransactionID", &p.journal_entry_id.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    tn("nsSAFT:TransactionDate", &p.tx_date.to_string())
+                ));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:PaymentMethod", "03")));
+                x.push_str(&format!(
+                    "\t\t\t\t{}\n",
+                    t("nsSAFT:Description", &p.description)
+                ));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SystemID", "dzambo")));
+                x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SourceID", "dzambo")));
+                x.push_str("\t\t\t\t<nsSAFT:PaymentLine>\n");
+                x.push_str(&format!("\t\t\t\t\t{}\n", tn("nsSAFT:LineNumber", "1")));
+                x.push_str(&format!(
+                    "\t\t\t\t\t{}\n",
+                    t("nsSAFT:SourceDocumentID", &p.reference)
+                ));
+                x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:AccountID", "501")));
+                x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:CustomerID", "0")));
+                x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:SupplierID", "0")));
+                x.push_str(&format!(
+                    "\t\t\t\t\t{}\n",
+                    tn("nsSAFT:TaxPointDate", &p.tx_date.to_string())
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t\t{}\n",
+                    t("nsSAFT:Description", &p.counterpart_name)
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t\t{}\n",
+                    t(
+                        "nsSAFT:DebitCreditIndicator",
+                        if p.direction == "in" { "D" } else { "C" }
+                    )
+                ));
+                x.push_str("\t\t\t\t\t<nsSAFT:PaymentLineAmount>\n");
+                x.push_str(&format!(
+                    "\t\t\t\t\t\t{}\n",
+                    tn("nsSAFT:Amount", &money(&p.amount.abs()))
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t\t\t{}\n",
+                    t("nsSAFT:CurrencyCode", "EUR")
+                ));
+                x.push_str(&format!(
+                    "\t\t\t\t\t\t{}\n",
+                    tn("nsSAFT:CurrencyAmount", &money(&p.amount.abs()))
+                ));
+                x.push_str("\t\t\t\t\t</nsSAFT:PaymentLineAmount>\n");
+                x.push_str("\t\t\t\t</nsSAFT:PaymentLine>\n");
+                x.push_str("\t\t\t</nsSAFT:Payment>\n");
+            }
+            x.push_str("\t\t</nsSAFT:Payments>\n");
+            continue;
+        }
         let td: BigDecimal = list.iter().map(|i| i.net_amount.clone()).sum();
         let tc: BigDecimal = td.clone();
         x.push_str(&format!("\t\t<nsSAFT:{section}>\n"));
@@ -671,6 +837,12 @@ pub async fn monthly_xml(
                 "\t\t\t\t{}\n",
                 tn("nsSAFT:GLPostingDate", &i.issue_date.to_string())
             ));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BatchID", "0")));
+            x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SystemID", "dzambo")));
+            x.push_str(&format!(
+                "\t\t\t\t{}\n",
+                tn("nsSAFT:TransactionID", &i.journal_entry_id.to_string())
+            ));
             let row = invoices::by_id(conn, i.id).await?;
             if let Some((_, lines)) = row {
                 for (ln, l) in lines.iter().enumerate() {
@@ -678,6 +850,29 @@ pub async fn monthly_xml(
                     x.push_str(&format!(
                         "\t\t\t\t\t{}\n",
                         tn("nsSAFT:LineNumber", &(ln + 1).to_string())
+                    ));
+                    let line_acct = prods
+                        .iter()
+                        .find(|(p, _)| p.id == l.product_id)
+                        .map(|(p, _)| {
+                            if section == "SalesInvoices" {
+                                p.revenue_account_id
+                            } else {
+                                p.inventory_account_id
+                            }
+                        })
+                        .filter(|id| *id > 0)
+                        .and_then(|id| accts.iter().find(|a| a.id == id).map(|a| a.number.clone()))
+                        .unwrap_or_else(|| {
+                            if section == "SalesInvoices" {
+                                "702".into()
+                            } else {
+                                "602".into()
+                            }
+                        });
+                    x.push_str(&format!(
+                        "\t\t\t\t\t{}\n",
+                        t("nsSAFT:AccountID", &line_acct)
                     ));
                     x.push_str(&format!(
                         "\t\t\t\t\t{}\n",
@@ -702,6 +897,15 @@ pub async fn monthly_xml(
                         "\t\t\t\t\t{}\n",
                         tn("nsSAFT:UnitPrice", &money(&l.unit_price))
                     ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t{}\n",
+                        tn("nsSAFT:TaxPointDate", &i.issue_date.to_string())
+                    ));
+                    x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:References", "")));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t{}\n",
+                        t("nsSAFT:Description", &l.description)
+                    ));
                     x.push_str("\t\t\t\t\t<nsSAFT:InvoiceLineAmount>\n");
                     x.push_str(&format!(
                         "\t\t\t\t\t\t{}\n",
@@ -720,6 +924,67 @@ pub async fn monthly_xml(
                         "\t\t\t\t\t{}\n",
                         t("nsSAFT:DebitCreditIndicator", "C")
                     ));
+                    x.push_str("\t\t\t\t\t<nsSAFT:ShippingCostsAmount>\n");
+                    x.push_str(&format!("\t\t\t\t\t\t{}\n", tn("nsSAFT:Amount", "0.00")));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t("nsSAFT:CurrencyCode", "EUR")
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        tn("nsSAFT:CurrencyAmount", "0.00")
+                    ));
+                    x.push_str("\t\t\t\t\t</nsSAFT:ShippingCostsAmount>\n");
+                    x.push_str("\t\t\t\t\t<nsSAFT:TaxInformation>\n");
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t(
+                            "nsSAFT:TaxType",
+                            if l.vat_rate.is_zero() { "" } else { "100010" }
+                        )
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t(
+                            "nsSAFT:TaxCode",
+                            if l.vat_rate.is_zero() { "" } else { "110010" }
+                        )
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        tn("nsSAFT:TaxPercentage", &format!("{:.2}", l.vat_rate))
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        tn("nsSAFT:TaxBase", &money(&l.net_amount))
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t("nsSAFT:TaxBaseDescription", "")
+                    ));
+                    x.push_str("\t\t\t\t\t\t<nsSAFT:TaxAmount>\n");
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t\t{}\n",
+                        tn("nsSAFT:Amount", &money(&l.vat_amount))
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t\t{}\n",
+                        t("nsSAFT:CurrencyCode", "EUR")
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t\t{}\n",
+                        tn("nsSAFT:CurrencyAmount", &money(&l.vat_amount))
+                    ));
+                    x.push_str("\t\t\t\t\t\t</nsSAFT:TaxAmount>\n");
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t("nsSAFT:TaxExemptionReason", "")
+                    ));
+                    x.push_str(&format!(
+                        "\t\t\t\t\t\t{}\n",
+                        t("nsSAFT:TaxDeclarationPeriod", "")
+                    ));
+                    x.push_str("\t\t\t\t\t</nsSAFT:TaxInformation>\n");
                     x.push_str("\t\t\t\t</nsSAFT:InvoiceLine>\n");
                 }
             }
