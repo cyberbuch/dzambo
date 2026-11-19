@@ -15,6 +15,8 @@ import BanksPage from "@/features/banks/BanksPage";
 import RulesPage from "@/features/rules/RulesPage";
 import AssetsPage from "@/features/assets/AssetsPage";
 import StockPage from "@/features/stock/StockPage";
+import ProductionPage from "@/features/production/ProductionPage";
+import DividendsPage from "@/features/dividends/DividendsPage";
 import { useSession } from "@/stores/session";
 
 function Guard() {
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="rules" element={<RulesPage />} />
             <Route path="assets" element={<AssetsPage />} />
             <Route path="stock" element={<StockPage />} />
+            <Route path="production" element={<ProductionPage />} />
+            <Route path="dividends" element={<DividendsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

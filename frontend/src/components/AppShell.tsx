@@ -16,6 +16,8 @@ const links = [
   { to: "/rules", label: "Правила", end: false },
   { to: "/assets", label: "ДМА", end: false },
   { to: "/stock", label: "Склад", end: false },
+  { to: "/production", label: "Производство", end: false },
+  { to: "/dividends", label: "Дивиденти", end: false },
 ];
 
 export default function AppShell() {
