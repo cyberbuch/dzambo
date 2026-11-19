@@ -10,6 +10,7 @@ pub mod reports_book;
 pub mod reports_corr;
 pub mod reports_data;
 pub mod reports_fs;
+pub mod reports_sheet;
 pub mod reports_trial;
 pub mod smap_def;
 

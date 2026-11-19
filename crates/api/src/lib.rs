@@ -143,6 +143,7 @@ pub fn router(st: AppState) -> Router {
         )
         .route("/v1/fs/lines", get(routes::fsform::lines))
         .route("/v1/reports", get(routes::reports::index))
+        .route("/v1/reports/export", get(routes::reports::export))
         .route(
             "/v1/fs/formulas",
             get(routes::fsform::index).put(routes::fsform::put),

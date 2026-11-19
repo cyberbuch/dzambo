@@ -127,3 +127,28 @@ pub fn render_html(
         )),
     }
 }
+
+/// PDF от таблица с редове (за справки от дневника). Първият ред е заглавен.
+pub fn grid_pdf(grid: &[Vec<String>]) -> Result<Vec<u8>, ApiError> {
+    let mut body = String::from("<table>");
+    for (i, row) in grid.iter().enumerate() {
+        body.push_str("<tr>");
+        let tag = if i == 0 { "th" } else { "td" };
+        for cell in row {
+            body.push_str(&format!("<{tag}>{}</{tag}>", esc(cell)));
+        }
+        body.push_str("</tr>");
+    }
+    body.push_str("</table>");
+    let html = format!(
+        "<!doctype html><html lang=\"bg\"><head><meta charset=\"utf-8\"><style>\
+         @page {{ size: A4; margin: 18mm 14mm; }} \
+         body {{ font-family: {FONT_NAME}, sans-serif; font-size: 9pt; }} \
+         table {{ width: 100%; border-collapse: collapse; }} \
+         th, td {{ border: 1px solid #999; padding: 3pt 5pt; text-align: left; }} \
+         th {{ background: #eef6f2; font-weight: bold; }}</style>\
+         </head><body>{body}</body></html>"
+    );
+    let (bytes, _mime, _ext) = render_html(&html, "pdf")?;
+    Ok(bytes)
+}
