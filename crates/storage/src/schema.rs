@@ -374,3 +374,45 @@ diesel::table! {
         counterpart_id -> Int8,
     }
 }
+
+diesel::table! {
+    fixed_asset_categories (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        cita_category -> Text,
+        min_depreciation_rate -> Numeric,
+        max_depreciation_rate -> Numeric,
+        default_method -> Text,
+        asset_account_id -> Int8,
+        depreciation_account_id -> Int8,
+        expense_account_id -> Int8,
+    }
+}
+
+diesel::table! {
+    fixed_assets (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        inventory_number -> Text,
+        category_id -> Int8,
+        acquisition_date -> Date,
+        put_into_service_date -> Nullable<Date>,
+        cost -> Numeric,
+        salvage_value -> Numeric,
+        useful_life_months -> Int4,
+        depreciation_method -> Text,
+        accounting_depreciation_rate -> Numeric,
+        tax_depreciation_rate -> Numeric,
+        accumulated_depreciation -> Numeric,
+        tax_accumulated_depreciation -> Numeric,
+        status -> Text,
+        serial_number -> Text,
+        manufacturer -> Text,
+        model -> Text,
+        responsible_person -> Text,
+        is_conserved -> Bool,
+        location_id -> Int8,
+    }
+}

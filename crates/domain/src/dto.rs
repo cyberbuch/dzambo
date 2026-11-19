@@ -607,3 +607,38 @@ pub struct BankRuleDto {
 }
 
 fn default_any() -> String { "any".into() }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AssetDto {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+    #[serde(default)]
+    pub inventory_number: String,
+    #[serde(default)]
+    pub category_id: i64,
+    pub acquisition_date: String,
+    #[serde(default)]
+    pub cost: String,
+    #[serde(default)]
+    pub salvage_value: String,
+    #[serde(default)]
+    pub useful_life_months: i32,
+    #[serde(default)]
+    pub accumulated_depreciation: String,
+    #[serde(default = "default_active")]
+    pub status: String,
+}
+
+fn default_active() -> String { "active".into() }
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct DepRowDto {
+    pub asset_id: i64,
+    pub name: String,
+    pub amount: String,
+    pub expense_account: String,
+    pub depreciation_account: String,
+}

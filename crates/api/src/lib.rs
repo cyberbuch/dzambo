@@ -162,6 +162,10 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/bank-matching-rules/defaults", post(routes::bank_rules::defaults))
         .route("/v1/bank-matching-rules/preview", post(routes::bank_rules::preview))
         .route("/v1/bank-matching-rules/auto-allocate", post(routes::bank_rules::auto_allocate))
+        .route("/v1/fixed-assets", get(routes::fixed_assets::index).post(routes::fixed_assets::create))
+        .route("/v1/fixed-assets/{id}", axum::routing::delete(routes::fixed_assets::delete))
+        .route("/v1/fixed-assets/depreciation/preview", post(routes::fixed_assets::preview))
+        .route("/v1/fixed-assets/depreciation/post", post(routes::fixed_assets::post_dep))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)
