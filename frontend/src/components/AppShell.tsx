@@ -14,6 +14,7 @@ const links = [
   { to: "/closing", label: "Приключване", end: false },
   { to: "/banks", label: "Банки", end: false },
   { to: "/rules", label: "Правила", end: false },
+  { to: "/assets", label: "ДМА", end: false },
 ];
 
 export default function AppShell() {

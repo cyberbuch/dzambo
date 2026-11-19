@@ -13,6 +13,7 @@ import VatPage from "@/features/vat/VatPage";
 import ClosingPage from "@/features/closing/ClosingPage";
 import BanksPage from "@/features/banks/BanksPage";
 import RulesPage from "@/features/rules/RulesPage";
+import AssetsPage from "@/features/assets/AssetsPage";
 import { useSession } from "@/stores/session";
 
 function Guard() {
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="closing" element={<ClosingPage />} />
             <Route path="banks" element={<BanksPage />} />
             <Route path="rules" element={<RulesPage />} />
+            <Route path="assets" element={<AssetsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>
