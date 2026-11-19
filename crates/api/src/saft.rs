@@ -1029,6 +1029,7 @@ pub async fn export(
     let mode = q.get("mode").cloned().unwrap_or_else(|| "monthly".into());
     let xml = match mode.as_str() {
         "annual" => annual_xml(&mut conn, company.id, year).await?,
+        "ondemand" => ondemand_xml(&mut conn, company.id, year, month).await?,
         _ => monthly_xml(&mut conn, company.id, year, month).await?,
     };
     let filename = format!("saft_{year:04}-{month:02}_{mode}.xml");
@@ -1426,6 +1427,358 @@ async fn annual_xml(
         x.push_str("\t\t</nsSAFT:AssetTransaction>\n");
     }
     x.push_str("\t</nsSAFT:AssetTransactions></nsSAFT:SourceDocumentsAnnual>\n");
+    x.push_str("</nsSAFT:AuditFile>\n");
+    Ok(x)
+}
+
+// ---------- Режим при поискване: MovementOfGoods ----------
+
+fn movement_date(dtype: &str, dnum: &str) -> String {
+    // Датата на движението = датата на документа (HH-MM от номера няма; използваме денес).
+    let _ = (dtype, dnum);
+    today()
+}
+
+fn movement_code(kind: &str) -> &'static str {
+    match kind {
+        "purchase" => "10",
+        "production_out" => "20",
+        "sale" => "30",
+        "issue" => "70",
+        _ => "80",
+    }
+}
+
+async fn ondemand_xml(
+    conn: &mut storage::DbConn,
+    company_id: i64,
+    year: i32,
+    month: i32,
+) -> Result<String, ApiError> {
+    use bigdecimal::Zero;
+    let (company_row, _) = storage::companies::by_id(conn, company_id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("фирмата не е намерена"))?;
+    let c = &company_row;
+    let prods = products::list(conn, company_id).await?;
+    let accts = accounts::list(conn, company_id).await?;
+
+    let mut x = String::new();
+    x.push_str("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+    x.push_str(&format!("<nsSAFT:AuditFile xmlns:nsSAFT=\"{NS}\">\n"));
+    x.push_str("\t<nsSAFT:Header>\n");
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileVersion", "007")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileCountry", "BG")));
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:AuditFileDateCreated", &today())
+    ));
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:SoftwareCompanyName", "dzambo")
+    ));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:SoftwareID", "dzambo")));
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:SoftwareVersion", env!("CARGO_PKG_VERSION"))
+    ));
+    x.push_str("\t\t<nsSAFT:Company>\n");
+    x.push_str(&format!(
+        "\t\t\t{}\n",
+        t("nsSAFT:RegistrationNumber", c.eik.trim())
+    ));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:Name", &c.name)));
+    x.push_str("\t\t\t<nsSAFT:Address><nsSAFT:City>София</nsSAFT:City><nsSAFT:Country>BG</nsSAFT:Country><nsSAFT:AddressType>StreetAddress</nsSAFT:AddressType></nsSAFT:Address>\n");
+    x.push_str("\t\t\t<nsSAFT:Contact><nsSAFT:ContactPerson><nsSAFT:Title></nsSAFT:Title><nsSAFT:FirstName></nsSAFT:FirstName><nsSAFT:LastName></nsSAFT:LastName><nsSAFT:OtherTitles></nsSAFT:OtherTitles></nsSAFT:ContactPerson><nsSAFT:Telephone></nsSAFT:Telephone><nsSAFT:Email></nsSAFT:Email></nsSAFT:Contact>\n");
+    x.push_str(&format!("\t\t\t<nsSAFT:TaxRegistration><nsSAFT:TaxRegistrationNumber>{}</nsSAFT:TaxRegistrationNumber><nsSAFT:TaxType>100010</nsSAFT:TaxType></nsSAFT:TaxRegistration>\n", c.eik.trim()));
+    x.push_str(
+        "\t\t\t<nsSAFT:BankAccount><nsSAFT:IBANNumber></nsSAFT:IBANNumber></nsSAFT:BankAccount>\n",
+    );
+    x.push_str("\t\t</nsSAFT:Company>\n");
+    let od_owners = storage::related::owners(conn, company_id).await?;
+    x.push_str("\t\t<nsSAFT:Ownership><nsSAFT:IsPartOfGroup>1</nsSAFT:IsPartOfGroup>\n");
+    if let Some(o) = od_owners.first() {
+        x.push_str(&format!("\t\t\t<nsSAFT:BeneficialOwnerNameCyrillicBG>{} {}</nsSAFT:BeneficialOwnerNameCyrillicBG>\n", esc(&o.first_name_bg), esc(&o.last_name_bg)));
+        x.push_str(&format!(
+            "\t\t\t<nsSAFT:BeneficialOwnerEGN>{}</nsSAFT:BeneficialOwnerEGN>\n",
+            esc(&o.egn)
+        ));
+        x.push_str(&format!("\t\t\t<nsSAFT:BeneficialOwnerNameLatinForeign>{}</nsSAFT:BeneficialOwnerNameLatinForeign>\n", esc(&format!("{} {}", o.first_name_latin, o.last_name_latin))));
+        x.push_str("\t\t\t<nsSAFT:BeneficialCountryForeign>BG</nsSAFT:BeneficialCountryForeign>\n");
+        x.push_str(
+            "\t\t\t<nsSAFT:BeneficialCountryForeignCode>BG</nsSAFT:BeneficialCountryForeignCode>\n",
+        );
+        x.push_str("\t\t\t<nsSAFT:UltimateOwnerNameCyrillicBG>dzambo</nsSAFT:UltimateOwnerNameCyrillicBG>\n");
+        x.push_str("\t\t\t<nsSAFT:UltimateOwnerUICBG>0000000000</nsSAFT:UltimateOwnerUICBG>\n");
+        x.push_str("\t\t\t<nsSAFT:UltimateOwnerNameCyrillicForeign>dzambo</nsSAFT:UltimateOwnerNameCyrillicForeign>\n");
+        x.push_str("\t\t\t<nsSAFT:UltimateOwnerNameLatinForeign>dzambo</nsSAFT:UltimateOwnerNameLatinForeign>\n");
+        x.push_str("\t\t\t<nsSAFT:CountryForeign>BG</nsSAFT:CountryForeign>\n");
+    }
+    x.push_str("\t\t</nsSAFT:Ownership>\n");
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:DefaultCurrencyCode", &c.currency)
+    ));
+    x.push_str(&format!("\t\t<nsSAFT:SelectionCriteria><nsSAFT:TaxReportingJurisdiction>NRA</nsSAFT:TaxReportingJurisdiction><nsSAFT:CompanyEntity></nsSAFT:CompanyEntity><nsSAFT:PeriodStart>1</nsSAFT:PeriodStart><nsSAFT:PeriodStartYear>{}</nsSAFT:PeriodStartYear><nsSAFT:PeriodEnd>12</nsSAFT:PeriodEnd><nsSAFT:PeriodEndYear>{}</nsSAFT:PeriodEndYear><nsSAFT:DocumentType></nsSAFT:DocumentType><nsSAFT:OtherCriteria></nsSAFT:OtherCriteria></nsSAFT:SelectionCriteria>\n", year, year));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:HeaderComment", "M")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:TaxAccountingBasis", "A")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:TaxEntity", "Company")));
+    x.push_str("\t</nsSAFT:Header>\n");
+
+    // MasterFilesOnDemand
+    x.push_str("\t<nsSAFT:MasterFilesOnDemand>\n");
+    x.push_str("\t\t<nsSAFT:TaxTable><nsSAFT:TaxTableEntry>\n");
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:TaxType", "100010")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:Description", "ДДС")));
+    for (code, desc, pct) in [
+        ("110010", "Стандартна ставка", "20"),
+        ("110020", "Намалена ставка", "9"),
+        ("110030", "Нулева ставка", "0"),
+    ] {
+        x.push_str("\t\t\t<nsSAFT:TaxCodeDetails>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:TaxCode", code)));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Description", desc)));
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:TaxPercentage", pct)));
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BaseRate", "1")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Country", "BG")));
+        x.push_str("\t\t\t</nsSAFT:TaxCodeDetails>\n");
+    }
+    x.push_str("\t\t</nsSAFT:TaxTableEntry></nsSAFT:TaxTable>\n");
+    x.push_str("\t\t<nsSAFT:MovementTypeTable>\n");
+    for e in domain::noms::entries("stock_movements") {
+        let parts: Vec<&str> = e.split('|').collect();
+        x.push_str("\t\t\t<nsSAFT:MovementTypeTableEntry>\n");
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:MovementType", parts.first().copied().unwrap_or(""))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:Description", parts.get(1).copied().unwrap_or(""))
+        ));
+        x.push_str("\t\t\t</nsSAFT:MovementTypeTableEntry>\n");
+    }
+    x.push_str("\t\t</nsSAFT:MovementTypeTable>\n");
+    x.push_str("\t\t<nsSAFT:UOMTable>\n");
+    x.push_str("\t\t\t<nsSAFT:UOMTableEntry>\n");
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:UnitOfMeasure", "C62")));
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Description", "C62")));
+    x.push_str("\t\t\t</nsSAFT:UOMTableEntry>\n\t\t</nsSAFT:UOMTable>\n");
+    x.push_str("\t\t<nsSAFT:Products>\n");
+    for (p, e) in &prods {
+        x.push_str("\t\t\t<nsSAFT:Product>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:ProductCode", &p.code)));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:GoodsServicesID", "01")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Description", &p.name)));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:ProductCommodityCode", &e.cn8_code)
+        ));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:UOMBase", &p.unit)));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:UOMStandard", &p.unit)));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            tn("nsSAFT:UOMToUOMBaseConversionFactor", "1")
+        ));
+        x.push_str("\t\t\t</nsSAFT:Product>\n");
+    }
+    x.push_str("\t\t</nsSAFT:Products>\n");
+    // PhysicalStock само за инвентарни
+    let lots = storage::stock::open_lots(conn, company_id).await?;
+    let mut agg: Vec<(i64, BigDecimal, BigDecimal)> = Vec::new();
+    for l in &lots {
+        if let Some(e) = agg.iter_mut().find(|(pid, _, _)| *pid == l.product_id) {
+            e.1 += &l.remaining;
+            e.2 += &l.remaining * &l.unit_cost;
+        } else {
+            agg.push((
+                l.product_id,
+                l.remaining.clone(),
+                &l.remaining * &l.unit_cost,
+            ));
+        }
+    }
+    x.push_str("\t\t<nsSAFT:PhysicalStock>\n");
+    for (pid, qv, vv) in agg.into_iter().filter(|(_, q, _)| !q.is_zero()) {
+        let Some((p, e)) = prods.iter().find(|(p, _)| p.id == pid) else {
+            continue;
+        };
+        let unit_price = if qv.is_zero() {
+            BigDecimal::zero()
+        } else {
+            &vv / &qv
+        };
+        x.push_str("\t\t\t<nsSAFT:PhysicalStockEntry>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:WarehouseID", "0")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:LocationID", "0")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:ProductCode", &p.code)));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:StockAccountNo", "")));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:ProductType", &e.product_type)
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:ProductStatus", "Активна")
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:StockAccountCommodityCode", &e.cn8_code)
+        ));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:OwnerID", "")));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:UOMPhysicalStock", &p.unit)
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            tn("nsSAFT:UOMToUOMBaseConversionFactor", "1")
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            tn("nsSAFT:UnitPriceBegin", &money(&unit_price))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            tn("nsSAFT:UnitPriceEnd", &money(&unit_price))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:OpeningStockQuantity", &qty(&qv))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:OpeningStockValue", &money(&vv))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:ClosingStockQuantity", &qty(&qv))
+        ));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:ClosingStockValue", &money(&vv))
+        ));
+        x.push_str("\t\t\t</nsSAFT:PhysicalStockEntry>\n");
+    }
+    x.push_str("\t\t</nsSAFT:PhysicalStock>\n");
+    x.push_str("\t</nsSAFT:MasterFilesOnDemand>\n");
+
+    // SourceDocumentsOnDemand / MovementOfGoods
+    x.push_str("\t<nsSAFT:SourceDocumentsOnDemand><nsSAFT:MovementOfGoods>\n");
+    let inv_all = invoices::list(conn, company_id).await?;
+    let mut rows: Vec<(String, String, String, String, String, String, BigDecimal)> = Vec::new();
+    let prod_info = |pid: i64| -> (String, String, String) {
+        prods
+            .iter()
+            .find(|(p, _)| p.id == pid)
+            .map(|(p, _)| (p.code.clone(), p.name.clone(), p.unit.clone()))
+            .unwrap_or_default()
+    };
+    for i in inv_all.iter().filter(|i| i.status == "posted") {
+        let Some((_, lines)) = invoices::by_id(conn, i.id).await? else {
+            continue;
+        };
+        let mtype = if i.direction == "in" {
+            "purchase"
+        } else {
+            "sale"
+        };
+        for l in lines.iter() {
+            let (code, name, unit) = prod_info(l.product_id);
+            rows.push((
+                movement_code(mtype).into(),
+                i.document_type.clone(),
+                i.number.clone(),
+                code,
+                name,
+                unit,
+                l.quantity.clone(),
+            ));
+        }
+    }
+    for o in storage::mfg::list_orders(conn, company_id)
+        .await?
+        .iter()
+        .filter(|o| o.status == "posted")
+    {
+        for l in storage::mfg::order_lines_of(conn, o.id).await? {
+            let (code, name, unit) = prod_info(l.product_id);
+            rows.push((
+                "issue".into(),
+                "production".into(),
+                o.number.clone(),
+                code,
+                name,
+                unit,
+                l.quantity.clone(),
+            ));
+        }
+    }
+    for d in storage::stock_docs::list(conn, company_id).await? {
+        let is_movement = matches!(d.kind.as_str(), "issue" | "writeoff" | "move");
+        if !is_movement {
+            continue;
+        }
+        for l in storage::stock_docs::lines_of(conn, d.id).await? {
+            let (code, name, unit) = prod_info(l.product_id);
+            let m = match d.kind.as_str() {
+                "issue" => "issue",
+                "writeoff" => "writeoff",
+                _ => "transfer",
+            };
+            rows.push((
+                movement_code(m).into(),
+                "stock".into(),
+                d.number.clone(),
+                code,
+                name,
+                unit,
+                l.quantity.clone(),
+            ));
+        }
+    }
+    let _ = (year, month, accts);
+    x.push_str(&format!(
+        "\t\t{}\n",
+        tn("nsSAFT:NumberOfMovementLines", &rows.len().to_string())
+    ));
+    let mut recv = BigDecimal::zero();
+    let mut issued = BigDecimal::zero();
+    for (mtype, _, _, _, _, _, q) in &rows {
+        match mtype.as_str() {
+            "purchase" => recv += q,
+            _ => issued += q,
+        }
+    }
+
+    for (mtype, dtype, dnum, pcode, _pname, unit, quantity) in &rows {
+        x.push_str("\t\t<nsSAFT:StockMovement>\n");
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:MovementReference", dnum)));
+        x.push_str(&format!(
+            "\t\t\t{}\n",
+            tn("nsSAFT:MovementDate", &movement_date(dtype, dnum))
+        ));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:MovementType", mtype)));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:SourceID", "dzambo")));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:SystemID", "dzambo")));
+        x.push_str(&format!("\t\t\t<nsSAFT:DocumentReference><nsSAFT:DocumentType>{}</nsSAFT:DocumentType><nsSAFT:DocumentNumber>{}</nsSAFT:DocumentNumber></nsSAFT:DocumentReference>\n", esc(dtype), esc(dnum)));
+        x.push_str("\t\t\t<nsSAFT:StockMovementLine>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:LineNumber", "1")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:ProductCode", pcode)));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            t("nsSAFT:Quantity", &qty(quantity))
+        ));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:UnitOfMeasure", unit)));
+        x.push_str(&format!(
+            "\t\t\t\t{}\n",
+            tn("nsSAFT:UOMToUOMBaseConversionFactor", "1")
+        ));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:MovementSubType", "P")));
+        x.push_str("\t\t\t</nsSAFT:StockMovementLine>\n");
+        x.push_str("\t\t</nsSAFT:StockMovement>\n");
+    }
+    x.push_str("\t</nsSAFT:MovementOfGoods></nsSAFT:SourceDocumentsOnDemand>\n");
     x.push_str("</nsSAFT:AuditFile>\n");
     Ok(x)
 }
