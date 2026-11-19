@@ -1745,6 +1745,23 @@ async fn ondemand_xml(
     let mut recv = BigDecimal::zero();
     let mut issued = BigDecimal::zero();
     for (mtype, _, _, _, _, _, q) in &rows {
+        if mtype == "purchase" {
+            recv += q
+        } else {
+            issued += q
+        }
+    }
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:TotalQuantityReceived", &qty(&recv))
+    ));
+    x.push_str(&format!(
+        "\t\t{}\n",
+        t("nsSAFT:TotalQuantityIssued", &qty(&issued))
+    ));
+    let mut recv = BigDecimal::zero();
+    let mut issued = BigDecimal::zero();
+    for (mtype, _, _, _, _, _, q) in &rows {
         match mtype.as_str() {
             "purchase" => recv += q,
             _ => issued += q,
@@ -1764,6 +1781,10 @@ async fn ondemand_xml(
         x.push_str(&format!("\t\t\t<nsSAFT:DocumentReference><nsSAFT:DocumentType>{}</nsSAFT:DocumentType><nsSAFT:DocumentNumber>{}</nsSAFT:DocumentNumber></nsSAFT:DocumentReference>\n", esc(dtype), esc(dnum)));
         x.push_str("\t\t\t<nsSAFT:StockMovementLine>\n");
         x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:LineNumber", "1")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:AccountID", "302")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:TransactionID", dnum)));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:CustomerID", "0")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SupplierID", "0")));
         x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:ProductCode", pcode)));
         x.push_str(&format!(
             "\t\t\t\t{}\n",
@@ -1772,8 +1793,9 @@ async fn ondemand_xml(
         x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:UnitOfMeasure", unit)));
         x.push_str(&format!(
             "\t\t\t\t{}\n",
-            tn("nsSAFT:UOMToUOMBaseConversionFactor", "1")
+            tn("nsSAFT:UOMToUOMPhysicalStockConversionFactor", "1")
         ));
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BookValue", "0.00")));
         x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:MovementSubType", "P")));
         x.push_str("\t\t\t</nsSAFT:StockMovementLine>\n");
         x.push_str("\t\t</nsSAFT:StockMovement>\n");
