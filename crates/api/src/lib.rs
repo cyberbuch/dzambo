@@ -156,6 +156,7 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/bank-accounts", get(routes::banks::accounts).post(routes::banks::create_account))
         .route("/v1/bank-transactions", get(routes::banks::transactions))
         .route("/v1/bank-transactions/import", post(routes::banks::import))
+        .route("/v1/bank-transactions/{id}/post", post(routes::banks::post))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)

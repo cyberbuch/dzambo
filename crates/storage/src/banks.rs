@@ -85,3 +85,18 @@ pub async fn import_csv(conn: &mut AsyncPgConnection, company_id: i64, account_i
     }
     Ok(n)
 }
+
+pub async fn tx_by_id(conn: &mut AsyncPgConnection, id: i64) -> Result<Option<BankTransaction>, StorageError> {
+    bank_transactions::table.find(id).select(BankTransaction::as_select()).first(conn).await.optional().map_err(StorageError::from)
+}
+
+pub async fn set_tx_status(conn: &mut AsyncPgConnection, id: i64, status: &str, entry_id: i64) -> Result<(), StorageError> {
+    diesel::update(bank_transactions::table.find(id))
+        .set((bank_transactions::status.eq(status), bank_transactions::journal_entry_id.eq(entry_id)))
+        .execute(conn).await?;
+    Ok(())
+}
+
+pub async fn account_by_id(conn: &mut AsyncPgConnection, id: i64) -> Result<Option<BankAccount>, StorageError> {
+    bank_accounts::table.find(id).select(BankAccount::as_select()).first(conn).await.optional().map_err(StorageError::from)
+}

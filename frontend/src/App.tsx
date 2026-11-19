@@ -11,6 +11,7 @@ import ProductsPage from "@/features/products/ProductsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import VatPage from "@/features/vat/VatPage";
 import ClosingPage from "@/features/closing/ClosingPage";
+import BanksPage from "@/features/banks/BanksPage";
 import { useSession } from "@/stores/session";
 
 function Guard() {
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="vat" element={<VatPage />} />
             <Route path="closing" element={<ClosingPage />} />
+            <Route path="banks" element={<BanksPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

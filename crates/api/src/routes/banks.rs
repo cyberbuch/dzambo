@@ -1,6 +1,9 @@
 //! Банки: сметки (списък/създаване), транзакции (списък/CSV импорт).
 
-use axum::{extract::{Extension, Query, State}, http::StatusCode, Json};
+use axum::{extract::{Extension, Path, Query, State}, http::StatusCode, Json};
+use bigdecimal::BigDecimal;
+use diesel_async::RunQueryDsl;
+use storage::{accounts, journal::{self, NewJournalEntry, NewJournalLine}, periods};
 use domain::dto::{BankAccountDto, BankTransactionDto};
 
 use crate::{errors::ApiError, routes::common::active_company, state::{AppState, Session}};
@@ -39,4 +42,48 @@ pub async fn import(State(st): State<AppState>, Extension(s): Extension<Session>
     let mut conn = st.pool.get().await.map_err(|_| internal())?;
     let n = storage::banks::import_csv(&mut conn, c.id, b.account_id, &b.csv).await?;
     Ok(Json(serde_json::json!({"imported": n})))
+}
+
+/// Разнасяне на транзакция в дневника: Дт/Кт банкова сметка (501) ↔ контрагент.
+pub async fn post(State(st): State<AppState>, Extension(s): Extension<Session>, Path(id): Path<i64>) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let (_u, company) = active_company(&st, &s.claims.sub).await?;
+    let mut conn = st.pool.get().await.map_err(|_| internal())?;
+    let tx = storage::banks::tx_by_id(&mut conn, id).await?.ok_or_else(|| ApiError::not_found("транзакцията не е намерена"))?;
+    if tx.status == "posted" { return Err(ApiError::new(StatusCode::CONFLICT, "вече е разнесена")); }
+    let month = periods::month_key(tx.tx_date);
+    if periods::is_closed(&mut conn, company.id, &month).await? {
+        return Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, format!("периодът {month} е затворен")));
+    }
+    let ba = storage::banks::account_by_id(&mut conn, tx.bank_account_id).await?.ok_or_else(|| ApiError::not_found("сметката не е намерена"))?;
+    let bank_number = if ba.gl_account_id > 0 {
+        accounts::list(&mut conn, company.id).await?.iter().find(|a| a.id == ba.gl_account_id).map(|a| a.number.clone()).unwrap_or_else(|| "501".into())
+    } else { "501".into() };
+    let bank_acct = accounts::get_or_create(&mut conn, company.id, &bank_number).await?;
+    let cp_number = if tx.direction == "in" { "411" } else { "401" };
+    let cp_acct = accounts::get_or_create(&mut conn, company.id, cp_number).await?;
+    let amount = tx.amount.abs();
+    let (bank_dir, cp_dir) = if tx.direction == "in" { ("debit", "credit") } else { ("credit", "debit") };
+    let mk = |a: &storage::models::Account, dir: &str| NewJournalLine {
+        entry_id: 0, account_id: a.id, account_number: a.number.clone(), account_name: a.name.clone(),
+        direction: dir.into(), amount: amount.clone(), vat_amount: BigDecimal::default(),
+        currency: String::new(), fx_quantity: BigDecimal::default(), fx_rate: BigDecimal::from(1),
+    };
+    let lines = vec![mk(&bank_acct, bank_dir), mk(&cp_acct, cp_dir)];
+    let number = if tx.reference.is_empty() { format!("BANK-{id}") } else { tx.reference.clone() };
+    let entry = NewJournalEntry {
+        company_id: company.id, entry_date: tx.tx_date, document_type: "bank".into(), document_id: id,
+        document_number: number, description: tx.description.clone(), vat_type: "no_vat".into(),
+        counterpart_id: 0, counterpart_name: tx.counterpart_name.clone(), document_date: tx.tx_date, vat_period: month,
+    };
+    let c = conn.as_mut();
+    diesel::sql_query("BEGIN").execute(c).await?;
+    let result: Result<i64, storage::StorageError> = async {
+        let eid = journal::insert_entry(c, &entry, &lines).await?;
+        storage::banks::set_tx_status(c, id, "posted", eid).await?;
+        Ok(eid)
+    }.await;
+    match result {
+        Ok(eid) => { diesel::sql_query("COMMIT").execute(c).await?; Ok((StatusCode::CREATED, Json(serde_json::json!({"ok": true, "entry_id": eid})))) }
+        Err(e) => { let _ = diesel::sql_query("ROLLBACK").execute(c).await; Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())) }
+    }
 }
