@@ -37,13 +37,6 @@ pub async fn movement_mappings(
     let _ = active_company(&st, &s.claims.sub).await?;
     Ok(empty())
 }
-pub async fn system_settings(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(Json(serde_json::json!({})))
-}
 pub async fn users(
     State(st): State<AppState>,
     Extension(s): Extension<Session>,

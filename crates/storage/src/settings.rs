@@ -30,6 +30,15 @@ pub async fn put(conn: &mut AsyncPgConnection, key: &str, value: &str) -> Result
     Ok(())
 }
 
+pub async fn all(conn: &mut AsyncPgConnection) -> Result<Vec<(String, String)>, StorageError> {
+    settings::table
+        .order(settings::setting_key.asc())
+        .select((settings::setting_key, settings::value))
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
+}
+
 /// Тайната се генерира веднъж и се пази в базата — рестарт не инвалидира токените.
 pub async fn ensure_jwt_secret(conn: &mut AsyncPgConnection) -> Result<String, StorageError> {
     if let Some(existing) = get(conn, JWT_SECRET_KEY).await? {

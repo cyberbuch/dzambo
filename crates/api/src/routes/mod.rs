@@ -26,6 +26,7 @@ pub mod settings;
 pub mod stock;
 pub mod stock_docs;
 pub mod stockops;
+pub mod system_settings;
 pub mod vat;
 pub mod vat_export;
 

@@ -134,7 +134,34 @@ pub fn router(st: AppState) -> Router {
             get(routes::stockops::list_locations).post(routes::stockops::create_location),
         )
         .route("/v1/fs/formulas", get(routes::compat::fs_formulas))
-        .route("/v1/system-settings", get(routes::compat::system_settings))
+        .route(
+            "/v1/system-settings",
+            get(routes::system_settings::index).put(routes::system_settings::update),
+        )
+        .route(
+            "/v1/system-settings/db-check",
+            get(routes::system_settings::db_check),
+        )
+        .route(
+            "/v1/system-settings/smtp-test",
+            post(routes::system_settings::smtp_test),
+        )
+        .route(
+            "/v1/system-settings/s3-test",
+            post(routes::system_settings::s3_test),
+        )
+        .route(
+            "/v1/system-settings/s3-backup",
+            post(routes::system_settings::s3_backup),
+        )
+        .route(
+            "/v1/system-settings/s3-backups",
+            get(routes::system_settings::s3_backups),
+        )
+        .route(
+            "/v1/system-settings/s3-delete",
+            post(routes::system_settings::s3_delete),
+        )
         .route(
             "/v1/accounts/{id}",
             get(routes::master::show)
