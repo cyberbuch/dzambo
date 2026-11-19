@@ -456,3 +456,38 @@ diesel::table! {
         description -> Text,
     }
 }
+
+diesel::table! {
+    dividend_distributions (id) {
+        id -> Int8,
+        company_id -> Int8,
+        year -> Int4,
+        total_amount -> Numeric,
+        decision_date -> Date,
+        decision_number -> Text,
+        status -> Text,
+        notes -> Text,
+    }
+}
+
+diesel::table! {
+    dividends (id) {
+        id -> Int8,
+        company_id -> Int8,
+        distribution_id -> Int8,
+        beneficial_owner_id -> Int8,
+        owner_name -> Text,
+        owner_egn -> Text,
+        ownership_percentage -> Text,
+        gross_amount -> Numeric,
+        tax_rate -> Numeric,
+        tax_amount -> Numeric,
+        net_amount -> Numeric,
+        decision_date -> Date,
+        payment_date -> Nullable<Date>,
+        is_paid -> Bool,
+        notes -> Text,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(dividends, dividend_distributions);

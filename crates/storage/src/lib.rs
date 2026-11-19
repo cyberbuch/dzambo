@@ -9,6 +9,7 @@ pub mod closing;
 pub mod companies;
 pub mod counterparts;
 pub mod dashboard;
+pub mod dividends;
 pub mod fixed_assets;
 pub mod invoices;
 pub mod journal;

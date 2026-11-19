@@ -689,3 +689,33 @@ pub struct StockDocLineDto {
     #[serde(default)]
     pub description: String,
 }
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct DividendShareDto {
+    pub id: i64,
+    pub distribution_id: i64,
+    pub owner_name: String,
+    pub owner_egn: String,
+    pub ownership_percentage: String,
+    pub gross_amount: String,
+    pub tax_rate: String,
+    pub tax_amount: String,
+    pub net_amount: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct CreateDistributionBody {
+    pub year: i32,
+    pub total_amount: String,
+    pub decision_date: String,
+    #[serde(default)]
+    pub decision_number: String,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default = "default_five")]
+    pub tax_rate: String,
+}
+
+fn default_five() -> String { "5".into() }
