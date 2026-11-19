@@ -2,21 +2,29 @@
 
 Същата счетоводна програма като ytbuch, нов стек. Източник: `/home/ziko/ytgit/ytbuch`
 (Rust + Axum 0.8, YottaDB/Octo, Next.js 16). Няма продуктови данни — схемата се
-проектира чисто, без миграция на данни.
+проектира чисто, без миграция на данни. ytbuch е ~90% завършен и може да има
+грешки; складът там не е тестван. Пренасяме логиката като референция, но коректно
+за PostgreSQL.
 
-**Модел:** desktop приложение (Tauri), което се свързва със сървъра през порт
+**Модел:** desktop приложение (Tauri v2), което се свързва със сървъра през порт
 (HTTP). Една база — PostgreSQL. Без SQLite, без локално копие, без sync.
 Desktop-ът винаги работи срещу сървъра; web вариантът е същият код, пуснат
-другояче.
+другояче (axum сервира SPA-та).
+
+## Стек (реален)
 
 | Слой | ytbuch (старо) | dzambo (ново) |
 |------|----------------|---------------|
 | API | Rust + Axum 0.8 + tokio | същото, запазва се |
-| ORM/база | низов SQL през tokio-postgres → Octo | Diesel + diesel-async → PostgreSQL |
-| Frontend | Next.js 16 App Router, обикновен CSS | Tauri v2 + Vite + React + TS |
-| Дизайн | globals.css / module.css | Tailwind CSS + shadcn/ui |
-| Състояние | fetch + localStorage | Zustand (сесия/активна фирма) + TanStack Query (сървърни данни) |
+| ORM/база | низов SQL през tokio-postgres → Octo | Diesel 2.4 + diesel-async 0.10 + deadpool → PostgreSQL 17 |
+| Frontend | Next.js 16 App Router, обикновен CSS | **оригиналният Next.js 16 фронт, пренесен едно към едно** |
+| Desktop | — | Tauri v2 обвивка (devUrl → Next dev сървъра) |
 | Типове | ръчен fetch клиент | ts-rs (HTTP DTO) + tauri-specta (native команди) |
+
+> Минималният Vite/shadcn фронт беше отхвърлен („няма нищо общо с изходния“).
+> Затова пренесохме оригиналните екрани на ytbuch (app/, components/, lib/) и
+> запазихме API договора, за да работят без пренаписване. Vite скелето е
+> изместено в `frontend-vite-skeleton/` (gitignored).
 
 ## Неприкосновени правила на домейна
 
@@ -25,31 +33,32 @@ Desktop-ът винаги работи срещу сървъра; web вариа
 - Черно сторно: отрицателен знак, без обръщане на Дт/Кт.
 - Сумите в JSON са низове. `company_id` дели данните по фирма.
 - Постнат документ е immutable — корекция само със сторно.
-- API договорът: `items`/`count` за списъци, `{"detail":...}` за грешки,
-  страниране по 50 с търсене измежду всички редове.
-- Бизнес логиката (33k реда: ДДС, SAF-T, склад WAC/FIFO/LIFO, производство,
-  дивиденти, банки CSV/MT940/camt.053, печат PDF/DOCX/ODT/UBL, сканиране,
-  VIES, ЕЦБ) се пренася модул по модул, не се преизмисля.
+- API договорът: `{items,count,total,limit,offset,has_more}` за списъци,
+  `{"detail":...}` за грешки; страниране по 50 (макс 500) с филтриране измежду
+  всички редове.
+- Бизнес логиката (ДДС, SAF-T, склад WAC/FIFO/LIFO, производство, дивиденти,
+  банки CSV/MT940/camt.053, печат PDF/DOCX/ODT/UBL, сканиране, VIES, ЕЦБ) се
+  пренася модул по модул.
 - i18n речниците (bg/en), каталозите на НАП (сметки 360, мерни единици 127,
   данъчни кодове 169, КН8) и демо фирма YT ООД се пренасят.
+- **SAF-T = мапинг на номенклатури:** всяка фирма има свободен сметкоплан;
+  SAF-T изнася `AccountID` = НАП код (`accounts.saft_account_type`),
+  `TaxpayerAccountID` = собствения номер.
 
 ## Архитектура
 
 ```
 crates/
-  core/      домейн: модели, DTO (serde + ts_rs::TS), счетоводни правила,
-             dec (десетични), номенклатури, SAF-T XML, UBL, печат
+  domain/    домейн: модели, DTO (serde + ts_rs::TS), auth (argon2/JWT),
+             номенклатури, vat_ex каталог
   storage/   Diesel + diesel-async + deadpool: схема, миграции, заявки (Pg)
-  api/       axum router + handlers, JWT, rate limit
+    migrations/   0001..0015 (истинските миграции са ТУК, не в /migrations)
+  api/       axum router + handlers, JWT middleware, SAF-T XML, UBL, печат,
+             vatfile (точен НАП файл)
   server/    bin: api + storage, сервира и built SPA-та (ServeDir)
-frontend/    Vite + React + TS + Tailwind + shadcn/ui
-  src/
-    bindings/   ts-rs DTO типове + tauri-specta bindings (генерирани)
-    lib/        api.ts (HTTP клиент), platform.ts (web ↔ tauri адаптер)
-    stores/     Zustand: сесия, активна фирма, адрес на сървъра
-    features/   екрани по домейн: invoices, vat, stock, ...
-    components/ shadcn/ui + общи
-desktop/     Tauri v2 shell: обвива SPA-та, tauri-specta native команди
+frontend/    оригиналният ytbuch Next.js 16 (app/, components/, lib/)
+  src/bindings/   ts-rs DTO типове (генерирани от cargo test)
+src-tauri/   Tauri v2 shell: devUrl http://127.0.0.1:3022
 ```
 
 ### Портове (dev)
@@ -58,96 +67,84 @@ desktop/     Tauri v2 shell: обвива SPA-та, tauri-specta native кома
 |--------|-------|
 | PostgreSQL | `127.0.0.1:5434` — контейнер `dzambo-postgres`, потребител/парола/база `dzambo` |
 | API (server bin) | `http://127.0.0.1:8095` |
-| Vite dev | `http://127.0.0.1:5173` |
+| Next фронт | `http://127.0.0.1:3022` (proxy `/v1`,`/ready`,`/health` → 8095) |
 
 8092 и 3020 са заети от ytbuch; 5433 — от botyaga.
+`DATABASE_URL` по подразбиране: `postgres://dzambo:dzambo@127.0.0.1:5434/dzambo`.
+Dev superadmin: `superadmin` / `dzambo-admin-dev` (env `DZAMBO_SUPERADMIN_PASSWORD`).
+Login: `POST /v1/auth/token` с `{sub|email, password}` → `access_token`.
 
 ### Една кодова база, два начина на пускане
 
-- **Desktop:** Tauri зарежда SPA-та; `api.ts` сочи към конфигурируем адрес на
-  сървъра (първи старт / настройки, по подразбиране `http://127.0.0.1:8095`).
-  JWT токенът се пази в tauri-plugin-store.
-- **Web:** същият axum `server` сервира built SPA-та през `ServeDir` — още от
-  фаза 1, не като отделен проект. `api.ts` сочи към same-origin. JWT в
-  localStorage. Deploy = `docker compose up` (api + postgres, 2 контейнера).
-
-### Правилото, което прави web преработката безплатна
-
-**Споделеният frontend код никога не вика Tauri директно.** Цялата native
-функционалност минава през `lib/platform.ts` адаптер:
-
-| Възможност | web | desktop (tauri-specta) |
-|------------|-----|------------------------|
-| токен | localStorage | tauri-plugin-store |
-| печат | browser print / PDF сваляне | native печат |
-| запис на файл | browser download | native save диалог |
-| отваряне на файл | input[type=file] | native open диалог |
-
-tauri-specta типизира само тези команди. HTTP DTO-тата идват от ts-rs export
-(`cargo test` генерира `frontend/src/bindings/`). TanStack Query клиентът е
-един и същ — HTTP към axum, без значение дали сървърът е localhost или VPS.
+- **Desktop:** Tauri зарежда Next dev сървъра (:3022); API-то е на :8095.
+- **Web:** същият axum `server` сервира built SPA-та през `ServeDir`.
+  Deploy = docker compose (api + postgres, 2 контейнера).
 
 ## Схема (само PostgreSQL)
 
-Octo ограниченията изчезват: истински транзакции за пост/сторно (в ytbuch
-постът не е атомарен и се трие ръчно при провал), индекси, FK, IDENTITY.
+Octo ограниченията изчезват: истински транзакции за пост/сторно, индекси, FK,
+IDENTITY. Пари/количества = NUMERIC; JSON остава низ; никакъв float по пътя
+JSON ↔ Diesel ↔ Pg. `core` crate е преименуван на `domain` (конфликт с diesel
+макрата). Diesel features: `64-column-tables`, `serde_json`.
 
-| Домейн | Тип | Бележка |
-|--------|-----|---------|
-| id | BIGINT IDENTITY | както сега, без uuid нужда |
-| пари/количества | NUMERIC(18,4) | rust_decimal в домейна; JSON остава низ; никакъв float |
-| време | TIMESTAMPTZ | |
-| изтриване | както е по домейн | одитната следа се пази |
+## Статус по фази
 
-~28 таблици от schema5.rs + schema_late.rs, преработени с истински типове.
-**Фаза 0 включва жива сонда** на diesel-async + deadpool + Pg (docs ≠
-поддържано от конкретната версия) — 20-редачен spike, не дизайн на хартия.
+| Фаза | Съдържание | Статус |
+|------|-----------|--------|
+| 0. Скеле + сонда | workspace, Tauri shell, ts-rs/tauri-specta, сонда diesel-async | ✅ |
+| 1. Вертикален разрез | Pg схема + seed (НАП, YT ООД), auth, фирми, табло, ServeDir | ✅ |
+| 2. Номенклатури | сметкоплан, контрагенти, стоки (КН8), настройки | ✅ |
+| 3. Фактури + дневник | чернова → номер → пост → черно сторно (транзакция); печат/UBL | ✅ |
+| 4. ДДС | дневници, **точен НАП файл**, периоди/заключване, начални салда | ✅ |
+| 5. Операции | банки CSV/MT940/camt.053, правила, ДМА, склад, производство, дивиденти | ✅ (финни дългове) |
+| 6. SAF-T + справки | SAF-T XML (месец/година/при поискване) — **0 XSD грешки**; одитна следа | ✅ |
+| 7. Auth flows + роли | роли/членства/permissions, одит, вътрешни документи, изписване, правила за склад | ✅ (register/forgot/2FA остават) |
+| 8. Desktop + deploy | tauri-specta през platform.ts, инсталатори, docker compose | ⏳ |
 
-## Фази
+### Пренесена реална логика (commit 3dd3b84, миграция 0015)
 
-Критерият за готово е работещ екран, не зелени тестове. Всеки екран се портва
-в същата фаза като API-то си.
+- **Роли/членства:** `roles.permissions` = JSON масив от ключове; seed на
+  „Администратор на фирма“, „Счетоводител“, „Фактурист“; CRUD за супер админ.
+- **Одит:** `audit_logs` се пише при пост/отпост/изтриване на фактура, протокол,
+  изписване; филтри (entity/action/user/q/changed_only) + `amount_changed`.
+- **Вътрешни документи:** CRUD, next-number (10 цифри), confirm (премества ДМА +
+  event; продуктовите редове се движат от rebuild), печат PDF/DOCX/ODT.
+- **Изписване:** `material_issues` (МИ-{id}) CRUD + confirm/unpost през rebuild;
+  `stock_account_rules` (goods/production/material); месечно изписване
+  (Дт разход / Кт материали), идемпотентно по месец.
+- **Партиди:** `stock_replay` rebuild WAC/FIFO/LIFO, презапис на наличности и
+  journal-а на ръчните изписвания.
+- **НАП файл:** `api/vatfile.rs` — POKUPKI (276 байта), PRODAGBI (426),
+  DEKLAR (592), VIES + ZIP (stored); фиксирана ширина, Windows-1251, CRLF;
+  `/v1/vat/export?type=pokupki|prodagbi|vies|zip`. Тестове заключват ширините.
 
-| Фаза | Съдържание | Готово, когато |
-|------|-----------|----------------|
-| **0. Скеле + сонда** | cargo workspace, Vite+React+Tailwind+shadcn, Tauri shell, platform.ts, ts-rs/tauri-specta bindings, CI (cargo test + clippy + vitest + tsc); жива сонда на diesel-async | празен прозорец + сондата минава срещу Pg |
-| **1. Вертикален разрез** | Pg схема + миграции + seed (НАП, демо YT ООД); auth (argon2id, JWT) + фирми + табло; login → dashboard екрани; ServeDir за SPA-та | работещ екран в Tauri (срещу сървъра) и в браузър |
-| **2. Номенклатури** | сметкоплан (seed без дублиране), контрагенти (ЕИК дедупликация), стоки (КН8), настройки на фирмата (обекти, собственици, серии) | паритет с docs/status.md по модулите |
-| **3. Фактури + дневник** | чернова → номер → пост → черно сторно в една Diesel транзакция; универсална статия (количество × курс); печат PDF/DOCX/ODT, UBL | атомарен пост/сторно; тест за прекъсване |
-| **4. ДДС** | дневници, файл за НАП, протоколи чл. 117, периоди/заключване, начални салда | затворен месец спира поста |
-| **5. Операции** | банки (CSV/MT940/camt.053), правила за разнасяне, ДМА, склад (WAC/FIFO/LIFO), производство, дивиденти | паритет по модул |
-| **6. SAF-T + справки** | SAF-T XML V1.0.1 (месец/година/при поискване), оборотна/главна книга/кореспонденции/баланс/ОПР/паричен поток, одитна следа | XSD валидацията минава |
-| **7. Auth flows** | регистрация, забравена парола, 2FA (QR + резервни кодове), потребители/роли, VIES, ЕЦБ, сканиране (Mistral), UBL вход | пълен паритет с API договора |
-| **8. Desktop + deploy** | tauri-specta команди през platform.ts (печат, файлове, store), настройка на адрес на сървъра, инсталатори deb/AppImage/msi; docker compose за web | инсталирано приложение + web deploy, пълен smoke test |
+## Финни дългове (за края)
+
+- ДМА update/revalue/move; bulk UI; Postbank/UniCredit/OBB CSV варианти.
+- Auth flows: register/forgot/reset/2FA/registration-status.
+- Оставащи 404-и, които оригиналният UI вика: addresses/parse, vies-lookup,
+  cn8-suggest, scans/*, system-settings/*, dividend-distributions,
+  fixed-asset-categories, product-name-mappings, fs/formulas, journal/bulk.
+- Паритет: PATCH с пълно тяло вместо частичен; rate limit на логин; AI КН8;
+  region→SAFT код; спец. документи 07/09 частичен пост.
 
 ## Какво НЕ се пренася
 
-- Octo хаковете: escape-backslash детекция, simple query, `MAX(id)+1`,
-  ръчен pool с reconnect, ръчно триене при провален пост.
-- Next.js SSR/middleware — SPA не ги нуждае; auth guard-ът е в клиента + API.
-- Обикновеният CSS — заменя се от Tailwind + shadcn/ui.
-- (От предишната версия на плана: SQLite, dual-backend Diesel, oplog/sync,
-  uuidv7 — няма нужда без offline.)
-
-## Рискове (честно)
-
-1. **Обем:** ~33k реда Rust + ~40 екрана. Многоседмичен проект; фаза 1 е
-   критичната — мине ли вертикалният разрез, останалото е механично пренасяне.
-2. **Diesel миграцията е основната работа:** ~115+ низови SQL заявки стават
-   DSL/проверени заявки. Бизнес логиката около тях остава непокътната.
-3. **SAF-T XSD паритет** — задължителните възли (Payment, AssetTransaction,
-   PhysicalStockEntry) зависят от данните; демо seed-ът трябва да ги покрива.
-4. **Десетични суми** — никакъв float по пътя JSON ↔ Diesel ↔ Pg NUMERIC.
-5. **Desktop = online винаги.** Няма offline режим — това е съзнателната
-   граница, която държи проекта прост. Сървърът трябва да е достъпен.
+- Octo хаковете: escape-backslash детекция, simple query, `MAX(id)+1`, ръчен
+  pool с reconnect, ръчно триене при провален пост.
+- (От предишни версии: SQLite, dual-backend Diesel, oplog/sync, uuidv7 — няма
+  нужда без offline. Vite/shadcn фронтът — заменен от оригиналния Next.)
 
 ## Конвенции
 
-- Файловете са по-малки от 800 реда — по-дълги се делят на модули.
-- Rust без warnings (`clippy -D warnings`), frontend `tsc --noEmit` strict + eslint.
-- Commit съобщенията са на български.
+- Файловете са ≤800 реда — по-дълги се делят на модули (напр. stockops +
+  stock_replay).
+- Rust без warnings (`cargo clippy --workspace --all-targets -- -D warnings`).
+- Commit съобщенията и коментарите са на български.
+- Миграциите са в `crates/storage/migrations/`.
 
 ## Проверки преди всяко качване
 
-`cargo test` + `cargo clippy` + `vitest run` + `tsc --noEmit` + XSD валидация
-на SAF-T — всички зелени. Сонда преди поправка, не след.
+`cargo fmt --all` + `cargo clippy --workspace --all-targets -- -D warnings` +
+`cargo test --workspace` — всички зелени; за SAF-T и `xmllint` 0 грешки.
+Сонда преди поправка, не след. Щом минат — `git push origin main`.
