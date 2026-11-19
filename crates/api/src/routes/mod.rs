@@ -1,5 +1,6 @@
 pub mod access;
 pub mod auth;
+pub mod auth_flow;
 pub mod bank_rules;
 pub mod banks;
 pub mod closing;

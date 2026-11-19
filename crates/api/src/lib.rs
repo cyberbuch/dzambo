@@ -28,7 +28,20 @@ pub fn router(st: AppState) -> Router {
             "/ready",
             get(|| async { Json(json!({"status": "ok", "database": "up"})) }),
         )
-        .route("/v1/auth/token", post(routes::auth::token));
+        .route("/v1/auth/token", post(routes::auth::token))
+        .route(
+            "/v1/auth/registration-status",
+            get(routes::auth_flow::registration_status),
+        )
+        .route("/v1/auth/register", post(routes::auth_flow::register))
+        .route(
+            "/v1/auth/forgot-password",
+            post(routes::auth_flow::forgot_password),
+        )
+        .route(
+            "/v1/auth/reset-password",
+            post(routes::auth_flow::reset_password),
+        );
 
     let protected = Router::new()
         .route("/v1/me", get(routes::me::me))

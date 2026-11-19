@@ -677,3 +677,14 @@ diesel::table! {
         reason -> Text,
     }
 }
+
+diesel::table! {
+    password_reset_tokens (id) {
+        id -> Int8,
+        user_id -> Int8,
+        token_hash -> Text,
+        expires_at -> Int8,
+        used -> Bool,
+        created_at -> Timestamptz,
+    }
+}

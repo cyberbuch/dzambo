@@ -30,41 +30,6 @@ pub async fn exchange_rates(
     let _ = active_company(&st, &s.claims.sub).await?;
     Ok(empty())
 }
-pub async fn audit_logs(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
-pub async fn roles(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
-pub async fn internal_docs(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
-pub async fn material_issues(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
-pub async fn stock_rules(
-    State(st): State<AppState>,
-    Extension(s): Extension<Session>,
-) -> Result<Json<serde_json::Value>, ApiError> {
-    let _ = active_company(&st, &s.claims.sub).await?;
-    Ok(empty())
-}
 pub async fn fs_formulas(
     State(st): State<AppState>,
     Extension(s): Extension<Session>,

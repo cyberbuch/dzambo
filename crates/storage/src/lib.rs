@@ -18,6 +18,7 @@ pub mod journal;
 pub mod mfg;
 pub mod models;
 pub mod opening;
+pub mod password_reset;
 pub mod periods;
 pub mod products;
 pub mod related;

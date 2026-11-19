@@ -28,7 +28,14 @@ pub async fn me(
         return Ok(Json(json!({"sub": session.claims.sub, "permissions": []})));
     };
     let memberships = companies::memberships_of(&mut conn, user.id).await?;
-    Ok(Json(
-        serde_json::to_value(mappers::me_dto(&user, &memberships)).unwrap(),
-    ))
+    let mut dto = mappers::me_dto(&user, &memberships);
+    if !user.is_super_admin {
+        if let Some(active) =
+            companies::resolve_active(&mut conn, &session.claims.sub, user.id).await?
+        {
+            dto.permissions =
+                storage::access::permissions_for(&mut conn, user.id, active.0.id).await?;
+        }
+    }
+    Ok(Json(serde_json::to_value(dto).unwrap()))
 }

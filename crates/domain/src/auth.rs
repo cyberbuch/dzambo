@@ -87,3 +87,8 @@ pub fn random_hex(bytes: usize) -> String {
     rand::rng().fill_bytes(&mut buf);
     buf.iter().map(|b| format!("{b:02x}")).collect()
 }
+
+pub fn sha256_hex(s: &str) -> String {
+    use sha2::{Digest, Sha256};
+    hex::encode(Sha256::digest(s.as_bytes()))
+}

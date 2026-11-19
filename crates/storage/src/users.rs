@@ -47,3 +47,30 @@ pub async fn list_all(conn: &mut AsyncPgConnection) -> Result<Vec<User>, Storage
         .await
         .map_err(StorageError::from)
 }
+
+pub async fn by_id(conn: &mut AsyncPgConnection, id: i64) -> Result<Option<User>, StorageError> {
+    users::table
+        .find(id)
+        .select(User::as_select())
+        .first(conn)
+        .await
+        .optional()
+        .map_err(StorageError::from)
+}
+
+/// Смяна на парола + вдигане на session_ver (инвалидира старите сесии).
+pub async fn set_password(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    password_hash: &str,
+) -> Result<(), StorageError> {
+    diesel::update(users::table.find(id))
+        .set((
+            users::password_hash.eq(password_hash),
+            users::session_ver.eq(users::session_ver + 1),
+        ))
+        .execute(conn)
+        .await
+        .map_err(StorageError::from)?;
+    Ok(())
+}
