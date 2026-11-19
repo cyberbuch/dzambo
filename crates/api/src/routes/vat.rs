@@ -57,14 +57,18 @@ async fn rows(
         storage::invoices::list_posted_by_month(&mut c, company.id, direction, period).await?;
     Ok(list
         .iter()
-        .map(|i| VatRowDto {
-            number: i.number.clone(),
-            issue_date: i.issue_date.to_string(),
-            counterpart_name: i.counterpart_name.clone(),
-            eik: map.get(&i.counterpart_id).cloned().unwrap_or_default(),
-            net_amount: format!("{:.2}", i.net_amount),
-            vat_amount: format!("{:.2}", i.vat_amount),
-            total_amount: format!("{:.2}", i.total_amount),
+        .map(|i| {
+            // Черно сторно (03/13/23): сумите се обръщат веднъж при четене.
+            let sign = if matches!(i.document_type.as_str(), "03" | "13" | "23") { -1 } else { 1 };
+            VatRowDto {
+                number: i.number.clone(),
+                issue_date: i.issue_date.to_string(),
+                counterpart_name: i.counterpart_name.clone(),
+                eik: map.get(&i.counterpart_id).cloned().unwrap_or_default(),
+                net_amount: format!("{:.2}", sign * &i.net_amount),
+                vat_amount: format!("{:.2}", sign * &i.vat_amount),
+                total_amount: format!("{:.2}", sign * &i.total_amount),
+            }
         })
         .collect())
 }

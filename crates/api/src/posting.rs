@@ -191,6 +191,12 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
             }
         }
 
+        for l in &mut new_lines {
+            if matches!(l.account_number.as_str(), "4531" | "4532") {
+                l.vat_amount = l.amount.clone();
+            }
+        }
+
         let description = format!(
             "{} {} / {}",
             title(&inv.document_type),
