@@ -437,6 +437,28 @@ pub struct InvoiceDto {
     #[serde(default)]
     pub original_invoice_id: i64,
     #[serde(default)]
+    pub payment_method: String,
+    #[serde(default)]
+    pub tax_event_date: String,
+    #[serde(default)]
+    pub discount_percent: Option<String>,
+    #[serde(default)]
+    pub discount_amount: Option<String>,
+    #[serde(default)]
+    pub vat_exemption_reason: String,
+    #[serde(default)]
+    pub location_id: i64,
+    #[serde(default)]
+    pub exclude_vat: i64,
+    #[serde(default)]
+    pub vat_article: String,
+    #[serde(default)]
+    pub customs_statistical: String,
+    #[serde(default)]
+    pub customs_duty: Option<String>,
+    #[serde(default)]
+    pub customs_vat: Option<String>,
+    #[serde(default)]
     pub lines: Vec<InvoiceLineDto>,
 }
 

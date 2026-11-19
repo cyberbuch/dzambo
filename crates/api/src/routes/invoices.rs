@@ -120,6 +120,17 @@ pub async fn create(
         currency_rate: dec(&dto.currency_rate, "1"),
         accounting_month: &month,
         original_invoice_id: dto.original_invoice_id,
+        payment_method: &dto.payment_method,
+        tax_event_date: invoices::parse_date(&dto.tax_event_date),
+        discount_percent: dec(&dto.discount_percent, "0"),
+        discount_amount: dec(&dto.discount_amount, "0"),
+        vat_exemption_reason: &dto.vat_exemption_reason,
+        location_id: dto.location_id,
+        exclude_vat: dto.exclude_vat != 0,
+        vat_article: &dto.vat_article,
+        customs_statistical: &dto.customs_statistical,
+        customs_duty: dec(&dto.customs_duty, "0"),
+        customs_vat: dec(&dto.customs_vat, "0"),
     };
     let id = invoices::insert_draft(&mut c, &new, &[]).await?;
     insert_lines(&mut c, id, &dto.lines).await?;
@@ -217,6 +228,20 @@ pub async fn update(
             storage::schema::invoices::currency.eq(&dto.currency),
             storage::schema::invoices::notes.eq(&dto.notes),
             storage::schema::invoices::original_invoice_id.eq(dto.original_invoice_id),
+            storage::schema::invoices::due_date.eq(invoices::parse_date(&dto.due_date)),
+            storage::schema::invoices::payment_method.eq(&dto.payment_method),
+            storage::schema::invoices::accounting_month.eq(&dto.accounting_month),
+            storage::schema::invoices::currency_rate.eq(dec(&dto.currency_rate, "1")),
+            storage::schema::invoices::tax_event_date.eq(invoices::parse_date(&dto.tax_event_date)),
+            storage::schema::invoices::discount_percent.eq(dec(&dto.discount_percent, "0")),
+            storage::schema::invoices::discount_amount.eq(dec(&dto.discount_amount, "0")),
+            storage::schema::invoices::vat_exemption_reason.eq(&dto.vat_exemption_reason),
+            storage::schema::invoices::location_id.eq(dto.location_id),
+            storage::schema::invoices::exclude_vat.eq(dto.exclude_vat != 0),
+            storage::schema::invoices::vat_article.eq(&dto.vat_article),
+            storage::schema::invoices::customs_statistical.eq(&dto.customs_statistical),
+            storage::schema::invoices::customs_duty.eq(dec(&dto.customs_duty, "0")),
+            storage::schema::invoices::customs_vat.eq(dec(&dto.customs_vat, "0")),
         ))
         .execute(&mut c)
         .await?;
@@ -373,4 +398,37 @@ pub async fn bulk(
     Ok(Json(
         serde_json::json!({ "processed": results.len(), "posted": posted, "results": results }),
     ))
+}
+
+pub async fn print(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Path(id): Path<i64>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<axum::response::Response, ApiError> {
+    use axum::response::IntoResponse;
+    let (_u, _c) = active_company(&st, &session.claims.sub).await?;
+    let mut c = conn(&st).await?;
+    let row = invoices::by_id(&mut c, id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("фактурата не е намерена"))?;
+    let format = q.get("format").cloned().unwrap_or_else(|| "pdf".into());
+    let (bytes, mime) = crate::print::render(&row, &format)?;
+    let ext = match format.as_str() {
+        "docx" => "docx",
+        "odt" => "odt",
+        _ => "pdf",
+    };
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, mime.to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"invoice-{}.{}\"", row.0.number, ext),
+            ),
+        ],
+        bytes,
+    )
+        .into_response())
 }

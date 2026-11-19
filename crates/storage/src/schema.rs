@@ -283,6 +283,16 @@ diesel::table! {
         accounting_month -> Text,
         original_invoice_id -> Int8,
         journal_entry_id -> Int8,
+        tax_event_date -> Nullable<Date>,
+        discount_percent -> Numeric,
+        discount_amount -> Numeric,
+        vat_exemption_reason -> Text,
+        location_id -> Int8,
+        exclude_vat -> Bool,
+        vat_article -> Text,
+        customs_statistical -> Text,
+        customs_duty -> Numeric,
+        customs_vat -> Numeric,
     }
 }
 

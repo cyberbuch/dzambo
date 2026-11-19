@@ -27,6 +27,16 @@ pub struct Invoice {
     pub accounting_month: String,
     pub original_invoice_id: i64,
     pub journal_entry_id: i64,
+    pub tax_event_date: Option<NaiveDate>,
+    pub discount_percent: BigDecimal,
+    pub discount_amount: BigDecimal,
+    pub vat_exemption_reason: String,
+    pub location_id: i64,
+    pub exclude_vat: bool,
+    pub vat_article: String,
+    pub customs_statistical: String,
+    pub customs_duty: BigDecimal,
+    pub customs_vat: BigDecimal,
 }
 
 #[derive(Insertable)]
@@ -45,6 +55,17 @@ pub struct NewInvoice<'a> {
     pub currency_rate: BigDecimal,
     pub accounting_month: &'a str,
     pub original_invoice_id: i64,
+    pub payment_method: &'a str,
+    pub tax_event_date: Option<NaiveDate>,
+    pub discount_percent: BigDecimal,
+    pub discount_amount: BigDecimal,
+    pub vat_exemption_reason: &'a str,
+    pub location_id: i64,
+    pub exclude_vat: bool,
+    pub vat_article: &'a str,
+    pub customs_statistical: &'a str,
+    pub customs_duty: BigDecimal,
+    pub customs_vat: BigDecimal,
 }
 
 #[derive(Queryable, Selectable, Debug, Clone)]

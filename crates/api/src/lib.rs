@@ -5,6 +5,7 @@ pub mod errors;
 pub mod mappers;
 pub mod mappers_invoices;
 pub mod posting;
+pub mod print;
 pub mod routes;
 pub mod saft;
 pub mod state;
@@ -128,6 +129,7 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/invoices/{id}/post", post(routes::invoices::post))
         .route("/v1/invoices/{id}/unpost", post(routes::invoices::unpost))
         .route("/v1/invoices/{id}/ubl", get(routes::invoices::ubl))
+        .route("/v1/invoices/{id}/print", get(routes::invoices::print))
         // Дневник
         .route(
             "/v1/journal",

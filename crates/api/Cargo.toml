@@ -14,5 +14,7 @@ tracing = { workspace = true }
 domain = { path = "../domain" }
 storage = { path = "../storage" }
 bigdecimal = "0.4"
+ironpress = "1"
+ferrodoc = "1"
 diesel = "2.2"
 diesel-async = "0.10"

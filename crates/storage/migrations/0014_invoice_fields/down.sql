@@ -1,0 +1,10 @@
+ALTER TABLE invoices DROP COLUMN IF EXISTS customs_vat;
+ALTER TABLE invoices DROP COLUMN IF EXISTS customs_duty;
+ALTER TABLE invoices DROP COLUMN IF EXISTS customs_statistical;
+ALTER TABLE invoices DROP COLUMN IF EXISTS vat_article;
+ALTER TABLE invoices DROP COLUMN IF EXISTS exclude_vat;
+ALTER TABLE invoices DROP COLUMN IF EXISTS location_id;
+ALTER TABLE invoices DROP COLUMN IF EXISTS vat_exemption_reason;
+ALTER TABLE invoices DROP COLUMN IF EXISTS discount_amount;
+ALTER TABLE invoices DROP COLUMN IF EXISTS discount_percent;
+ALTER TABLE invoices DROP COLUMN IF EXISTS tax_event_date;
