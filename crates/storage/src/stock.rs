@@ -173,16 +173,30 @@ pub async fn consume_fifo(
         inventory_lots::table
             .filter(inventory_lots::company_id.eq(company_id))
             .filter(inventory_lots::product_id.eq(product_id))
-            .order((inventory_lots::received_date.desc(), inventory_lots::id.desc()))
-            .select((inventory_lots::id, inventory_lots::remaining, inventory_lots::unit_cost))
+            .order((
+                inventory_lots::received_date.desc(),
+                inventory_lots::id.desc(),
+            ))
+            .select((
+                inventory_lots::id,
+                inventory_lots::remaining,
+                inventory_lots::unit_cost,
+            ))
             .load::<(i64, BigDecimal, BigDecimal)>(conn)
             .await?
     } else {
         inventory_lots::table
             .filter(inventory_lots::company_id.eq(company_id))
             .filter(inventory_lots::product_id.eq(product_id))
-            .order((inventory_lots::received_date.asc(), inventory_lots::id.asc()))
-            .select((inventory_lots::id, inventory_lots::remaining, inventory_lots::unit_cost))
+            .order((
+                inventory_lots::received_date.asc(),
+                inventory_lots::id.asc(),
+            ))
+            .select((
+                inventory_lots::id,
+                inventory_lots::remaining,
+                inventory_lots::unit_cost,
+            ))
             .load::<(i64, BigDecimal, BigDecimal)>(conn)
             .await?
     };

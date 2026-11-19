@@ -610,7 +610,9 @@ pub struct BankRuleDto {
     pub counterpart_id: i64,
 }
 
-fn default_zero() -> i64 { 0 }
+fn default_zero() -> i64 {
+    0
+}
 
 fn default_any() -> String {
     "any".into()
@@ -722,7 +724,9 @@ pub struct CreateDistributionBody {
     pub tax_rate: String,
 }
 
-fn default_five() -> String { "5".into() }
+fn default_five() -> String {
+    "5".into()
+}
 
 #[derive(Serialize, Deserialize, TS)]
 #[ts(export)]

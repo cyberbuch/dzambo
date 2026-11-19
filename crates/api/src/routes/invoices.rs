@@ -336,14 +336,21 @@ pub async fn bulk(
     let parsed: In = serde_json::from_value(b)
         .map_err(|_| ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "невалидно тяло"))?;
     if parsed.ids.is_empty() || parsed.ids.len() > 500 {
-        return Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "до 500 документа"));
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "до 500 документа",
+        ));
     }
     let (_u, _company) = active_company(&st, &session.claims.sub).await?;
     let mut results = Vec::new();
     for id in parsed.ids {
         let r = match parsed.action.as_str() {
-            "post" => posting::post_invoice(&st.pool, id).await.map(|_| (true, None)),
-            "unpost" => posting::unpost_invoice(&st.pool, id).await.map(|_| (true, None)),
+            "post" => posting::post_invoice(&st.pool, id)
+                .await
+                .map(|_| (true, None)),
+            "unpost" => posting::unpost_invoice(&st.pool, id)
+                .await
+                .map(|_| (true, None)),
             "delete" => {
                 let mut c = st.pool.get().await.map_err(|_| internal())?;
                 let _ = storage::journal::delete_by_document(&mut c, id).await;
@@ -352,7 +359,10 @@ pub async fn bulk(
                     Err(e) => Ok((false, Some(e.to_string()))),
                 }
             }
-            _ => Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "action е post, unpost или delete")),
+            _ => Err(ApiError::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "action е post, unpost или delete",
+            )),
         };
         match r {
             Ok((ok, err)) => results.push(bulk_result(id, ok, err)),
@@ -360,5 +370,7 @@ pub async fn bulk(
         }
     }
     let posted = results.iter().filter(|r| r["ok"] == true).count();
-    Ok(Json(serde_json::json!({ "processed": results.len(), "posted": posted, "results": results })))
+    Ok(Json(
+        serde_json::json!({ "processed": results.len(), "posted": posted, "results": results }),
+    ))
 }

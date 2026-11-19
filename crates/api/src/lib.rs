@@ -6,6 +6,7 @@ pub mod mappers;
 pub mod mappers_invoices;
 pub mod posting;
 pub mod routes;
+pub mod saft;
 pub mod state;
 pub mod ubl;
 
@@ -207,12 +208,31 @@ pub fn router(st: AppState) -> Router {
             post(routes::fixed_assets::post_dep),
         )
         .route("/v1/stock/report", get(routes::stock::report))
-        .route("/v1/stock-documents", get(routes::stock_docs::list).post(routes::stock_docs::create))
-        .route("/v1/dividends", get(routes::dividends::index).post(routes::dividends::create))
-        .route("/v1/recipes", get(routes::mfg::recipes).post(routes::mfg::create_recipe))
-        .route("/v1/recipes/{id}", axum::routing::delete(routes::mfg::delete_recipe))
-        .route("/v1/production-orders", get(routes::mfg::orders).post(routes::mfg::create_order))
-        .route("/v1/production-orders/{id}/confirm", post(routes::mfg::confirm))
+        .route(
+            "/v1/stock-documents",
+            get(routes::stock_docs::list).post(routes::stock_docs::create),
+        )
+        .route(
+            "/v1/dividends",
+            get(routes::dividends::index).post(routes::dividends::create),
+        )
+        .route("/v1/saft/export", axum::routing::get(saft::export))
+        .route(
+            "/v1/recipes",
+            get(routes::mfg::recipes).post(routes::mfg::create_recipe),
+        )
+        .route(
+            "/v1/recipes/{id}",
+            axum::routing::delete(routes::mfg::delete_recipe),
+        )
+        .route(
+            "/v1/production-orders",
+            get(routes::mfg::orders).post(routes::mfg::create_order),
+        )
+        .route(
+            "/v1/production-orders/{id}/confirm",
+            post(routes::mfg::confirm),
+        )
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)
