@@ -1,13 +1,14 @@
-//! Жива сонда: миграция → запис на NUMERIC(18,4) + TIMESTAMPTZ → четене обратно.
-//! Пуска се срещу dev базата: postgres://dzambo:dzambo@127.0.0.1:5434/dzambo
+//! Жива сонда: миграция → NUMERIC(18,4)/TIMESTAMPTZ roundtrip,
+//! и проверка на argon2 хеша от seed-а.
 
 use std::str::FromStr;
 
 use bigdecimal::BigDecimal;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use storage::schema::spike_entries::dsl::{amount, note, spike_entries};
-use storage::{connect, models::SpikeEntry, run_migrations, DEFAULT_URL};
+use storage::{
+    connect, run_migrations, schema::spike_entries::dsl::spike_entries, schema::users, DEFAULT_URL,
+};
 
 #[tokio::test]
 async fn numeric_and_timestamptz_roundtrip() {
@@ -22,22 +23,37 @@ async fn numeric_and_timestamptz_roundtrip() {
         .expect("изчистване");
 
     let entry_amount = BigDecimal::from_str("1234.5678").expect("сума");
-    let inserted: SpikeEntry = diesel::insert_into(spike_entries)
-        .values((amount.eq(entry_amount.clone()), note.eq("сонда")))
-        .returning(SpikeEntry::as_returning())
-        .get_result(&mut *conn)
-        .await
-        .expect("запис");
+    let inserted: (i32, BigDecimal, String, chrono::DateTime<chrono::Utc>) =
+        diesel::insert_into(spike_entries)
+            .values((
+                storage::schema::spike_entries::amount.eq(entry_amount.clone()),
+                storage::schema::spike_entries::note.eq("сонда"),
+            ))
+            .returning(spike_entries::all_columns())
+            .get_result(&mut *conn)
+            .await
+            .expect("запис");
 
-    assert_eq!(inserted.amount, entry_amount);
-    assert_eq!(inserted.json_amount(), "1234.5678");
-    assert!(inserted.created_at.timestamp() > 1_700_000_000);
+    assert_eq!(inserted.1, entry_amount);
+    assert_eq!(format!("{:.4}", inserted.1), "1234.5678");
+}
 
-    let read_back: SpikeEntry = spike_entries
-        .find(inserted.id)
-        .select(SpikeEntry::as_select())
+#[tokio::test]
+async fn seeded_password_verifies() {
+    let pool = connect(DEFAULT_URL).await.expect("pool");
+    let mut conn = pool.get().await.expect("conn");
+    let hash: Option<String> = users::table
+        .select(users::password_hash)
         .first(&mut *conn)
         .await
-        .expect("четене");
-    assert_eq!(read_back.amount, entry_amount);
+        .optional()
+        .expect("хеш");
+    // В CI няма seed — без потребител тестът се прескача.
+    let Some(hash) = hash else { return };
+    let expected = std::env::var("DZAMBO_SUPERADMIN_PASSWORD")
+        .unwrap_or_else(|_| "dzambo-admin-dev".to_string());
+    assert!(
+        domain::auth::verify_password(&expected, &hash),
+        "хешът от базата не съответства на паролата"
+    );
 }

@@ -27,7 +27,8 @@ export const useSession = create<SessionState>((set) => ({
   hydrated: false,
   hydrate: async () => {
     const storedUrl =
-      localStorage.getItem(SERVER_URL_KEY) ?? (isSecureContext ? "" : DEFAULT_SERVER_URL);
+      localStorage.getItem(SERVER_URL_KEY) ??
+      (typeof window !== "undefined" && window.isSecureContext ? "" : DEFAULT_SERVER_URL);
     setBaseUrl(storedUrl);
     const token = await platform.getToken();
     const company = Number(localStorage.getItem(COMPANY_KEY)) || null;

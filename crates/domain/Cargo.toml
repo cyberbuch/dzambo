@@ -1,5 +1,5 @@
 [package]
-name = "core"
+name = "domain"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,3 +9,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 ts-rs = { workspace = true }
+bigdecimal = "0.4"
+argon2 = "0.5"
+jsonwebtoken = "9"
+rand = "0.9"
+rand_core = { version = "0.6", features = ["getrandom"] }

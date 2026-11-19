@@ -1,8 +1,13 @@
-//! Diesel + diesel-async + PostgreSQL слой.
-//! Фаза 0: pool, миграции и сонда на типовете (NUMERIC/TIMESTAMPTZ).
+//! Diesel + diesel-async + PostgreSQL слой: pool, миграции, seed,
+//! и repo модули по домейн.
 
+pub mod companies;
+pub mod dashboard;
 pub mod models;
 pub mod schema;
+pub mod seed;
+pub mod settings;
+pub mod users;
 
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
 use diesel_async::pooled_connection::deadpool::{Object, Pool};
@@ -12,7 +17,7 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
-/// Адресът на dev базата: postgres://dzambo:dzambo@127.0.0.1:5434/dzambo
+/// Адресът на dev базата (контейнер dzambo-postgres).
 pub const DEFAULT_URL: &str = "postgres://dzambo:dzambo@127.0.0.1:5434/dzambo";
 
 pub type DbConn = Object<AsyncPgConnection>;

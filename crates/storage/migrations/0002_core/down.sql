@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS bank_accounts;
+DROP TABLE IF EXISTS invoices;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS user_companies;
+DROP TABLE IF EXISTS company_details;
+DROP TABLE IF EXISTS companies;
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS users;

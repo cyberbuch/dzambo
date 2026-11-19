@@ -1,0 +1,14 @@
+//! Домейн на dzambo: auth (argon2/JWT), DTO-та (serde + ts-rs),
+//! номенклатури на НАП, счетоводни правила и печатни модели (фази 3+).
+
+pub mod auth;
+pub mod dto;
+pub mod noms;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn harness() {
+        // Тестовият ранър задейства ts-rs export на DTO-тата.
+    }
+}
