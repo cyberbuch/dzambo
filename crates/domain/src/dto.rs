@@ -719,3 +719,66 @@ pub struct CreateDistributionBody {
 }
 
 fn default_five() -> String { "5".into() }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RecipeDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub code: String,
+    pub name: String,
+    #[serde(default)]
+    pub output_product_id: i64,
+    #[serde(default)]
+    pub output_quantity: String,
+    #[serde(default)]
+    pub lines: Vec<RecipeLineDto>,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct RecipeLineDto {
+    #[serde(default)]
+    pub product_id: i64,
+    #[serde(default)]
+    pub quantity: String,
+    #[serde(default)]
+    pub unit: String,
+    #[serde(default)]
+    pub wastage_percent: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct OrderDto {
+    pub id: i64,
+    #[serde(default)]
+    pub number: String,
+    pub recipe_id: i64,
+    pub output_product_id: i64,
+    pub quantity: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub material_cost: String,
+    #[serde(default)]
+    pub order_date: String,
+    #[serde(default)]
+    pub lines: Vec<OrderLineDto>,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct OrderLineDto {
+    pub product_id: i64,
+    #[serde(default)]
+    pub product_name: String,
+    pub quantity: String,
+    #[serde(default)]
+    pub unit: String,
+    #[serde(default)]
+    pub unit_cost: String,
+    #[serde(default)]
+    pub amount: String,
+}

@@ -11,6 +11,7 @@ pub mod fixed_assets;
 pub mod invoices;
 pub mod journal;
 pub mod master;
+pub mod mfg;
 pub mod me;
 pub mod opening;
 pub mod periods;

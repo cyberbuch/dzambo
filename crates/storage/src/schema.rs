@@ -491,3 +491,59 @@ diesel::table! {
 }
 
 diesel::allow_tables_to_appear_in_same_query!(dividends, dividend_distributions);
+
+diesel::table! {
+    recipes (id) {
+        id -> Int8,
+        company_id -> Int8,
+        code -> Text,
+        name -> Text,
+        output_product_id -> Int8,
+        output_quantity -> Numeric,
+        output_unit -> Text,
+        notes -> Text,
+        is_active -> Bool,
+    }
+}
+
+diesel::table! {
+    recipe_lines (id) {
+        id -> Int8,
+        recipe_id -> Int8,
+        product_id -> Int8,
+        quantity -> Numeric,
+        unit -> Text,
+        wastage_percent -> Numeric,
+        line_no -> Int4,
+    }
+}
+
+diesel::table! {
+    production_orders (id) {
+        id -> Int8,
+        company_id -> Int8,
+        number -> Text,
+        recipe_id -> Int8,
+        output_product_id -> Int8,
+        quantity -> Numeric,
+        location_id -> Int8,
+        order_date -> Date,
+        status -> Text,
+        notes -> Text,
+        material_cost -> Numeric,
+        journal_entry_id -> Int8,
+    }
+}
+
+diesel::table! {
+    production_order_lines (id) {
+        id -> Int8,
+        order_id -> Int8,
+        product_id -> Int8,
+        product_name -> Text,
+        quantity -> Numeric,
+        unit -> Text,
+        unit_cost -> Numeric,
+        amount -> Numeric,
+    }
+}

@@ -13,6 +13,7 @@ pub mod dividends;
 pub mod fixed_assets;
 pub mod invoices;
 pub mod journal;
+pub mod mfg;
 pub mod models;
 pub mod opening;
 pub mod periods;
