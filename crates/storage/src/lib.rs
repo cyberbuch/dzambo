@@ -3,6 +3,7 @@
 
 pub mod accounts;
 pub mod bank_formats;
+pub mod bank_rules;
 pub mod banks;
 pub mod closing;
 pub mod companies;

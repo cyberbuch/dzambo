@@ -360,3 +360,17 @@ diesel::table! {
 }
 
 diesel::allow_tables_to_appear_in_same_query!(journal_entries, journal_lines);
+
+diesel::table! {
+    bank_matching_rules (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        keywords -> Text,
+        direction -> Text,
+        priority -> Int4,
+        is_active -> Bool,
+        account_id -> Int8,
+        counterpart_id -> Int8,
+    }
+}

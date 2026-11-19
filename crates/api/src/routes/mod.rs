@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod bank_rules;
 pub mod banks;
 pub mod closing;
 pub mod common;

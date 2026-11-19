@@ -157,6 +157,11 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/bank-transactions", get(routes::banks::transactions))
         .route("/v1/bank-transactions/import", post(routes::banks::import))
         .route("/v1/bank-transactions/{id}/post", post(routes::banks::post))
+        .route("/v1/bank-matching-rules", get(routes::bank_rules::index).post(routes::bank_rules::create))
+        .route("/v1/bank-matching-rules/{id}", axum::routing::delete(routes::bank_rules::delete))
+        .route("/v1/bank-matching-rules/defaults", post(routes::bank_rules::defaults))
+        .route("/v1/bank-matching-rules/preview", post(routes::bank_rules::preview))
+        .route("/v1/bank-matching-rules/auto-allocate", post(routes::bank_rules::auto_allocate))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)

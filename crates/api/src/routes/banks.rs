@@ -47,23 +47,19 @@ pub async fn import(State(st): State<AppState>, Extension(s): Extension<Session>
     Ok(Json(serde_json::json!({"imported": n, "format": format})))
 }
 
-/// Разнасяне на транзакция в дневника: Дт/Кт банкова сметка (501) ↔ контрагент.
-pub async fn post(State(st): State<AppState>, Extension(s): Extension<Session>, Path(id): Path<i64>) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    let (_u, company) = active_company(&st, &s.claims.sub).await?;
-    let mut conn = st.pool.get().await.map_err(|_| internal())?;
-    let tx = storage::banks::tx_by_id(&mut conn, id).await?.ok_or_else(|| ApiError::not_found("транзакцията не е намерена"))?;
+/// Разнасяне на транзакция с избрана контрагентска сметка (по правило или посока).
+pub async fn post_with_account(conn: &mut storage::DbConn, company_id: i64, tx: &storage::banks::BankTransaction, cp_number: &str) -> Result<i64, ApiError> {
     if tx.status == "posted" { return Err(ApiError::new(StatusCode::CONFLICT, "вече е разнесена")); }
     let month = periods::month_key(tx.tx_date);
-    if periods::is_closed(&mut conn, company.id, &month).await? {
+    if periods::is_closed(conn, company_id, &month).await? {
         return Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, format!("периодът {month} е затворен")));
     }
-    let ba = storage::banks::account_by_id(&mut conn, tx.bank_account_id).await?.ok_or_else(|| ApiError::not_found("сметката не е намерена"))?;
+    let ba = storage::banks::account_by_id(conn, tx.bank_account_id).await?.ok_or_else(|| ApiError::not_found("сметката не е намерена"))?;
     let bank_number = if ba.gl_account_id > 0 {
-        accounts::list(&mut conn, company.id).await?.iter().find(|a| a.id == ba.gl_account_id).map(|a| a.number.clone()).unwrap_or_else(|| "501".into())
+        accounts::list(conn, company_id).await?.iter().find(|a| a.id == ba.gl_account_id).map(|a| a.number.clone()).unwrap_or_else(|| "501".into())
     } else { "501".into() };
-    let bank_acct = accounts::get_or_create(&mut conn, company.id, &bank_number).await?;
-    let cp_number = if tx.direction == "in" { "411" } else { "401" };
-    let cp_acct = accounts::get_or_create(&mut conn, company.id, cp_number).await?;
+    let bank_acct = accounts::get_or_create(conn, company_id, &bank_number).await?;
+    let cp_acct = accounts::get_or_create(conn, company_id, cp_number).await?;
     let amount = tx.amount.abs();
     let (bank_dir, cp_dir) = if tx.direction == "in" { ("debit", "credit") } else { ("credit", "debit") };
     let mk = |a: &storage::models::Account, dir: &str| NewJournalLine {
@@ -72,9 +68,9 @@ pub async fn post(State(st): State<AppState>, Extension(s): Extension<Session>, 
         currency: String::new(), fx_quantity: BigDecimal::default(), fx_rate: BigDecimal::from(1),
     };
     let lines = vec![mk(&bank_acct, bank_dir), mk(&cp_acct, cp_dir)];
-    let number = if tx.reference.is_empty() { format!("BANK-{id}") } else { tx.reference.clone() };
+    let number = if tx.reference.is_empty() { format!("BANK-{}", tx.id) } else { tx.reference.clone() };
     let entry = NewJournalEntry {
-        company_id: company.id, entry_date: tx.tx_date, document_type: "bank".into(), document_id: id,
+        company_id, entry_date: tx.tx_date, document_type: "bank".into(), document_id: tx.id,
         document_number: number, description: tx.description.clone(), vat_type: "no_vat".into(),
         counterpart_id: 0, counterpart_name: tx.counterpart_name.clone(), document_date: tx.tx_date, vat_period: month,
     };
@@ -82,11 +78,20 @@ pub async fn post(State(st): State<AppState>, Extension(s): Extension<Session>, 
     diesel::sql_query("BEGIN").execute(c).await?;
     let result: Result<i64, storage::StorageError> = async {
         let eid = journal::insert_entry(c, &entry, &lines).await?;
-        storage::banks::set_tx_status(c, id, "posted", eid).await?;
+        storage::banks::set_tx_status(c, tx.id, "posted", eid).await?;
         Ok(eid)
     }.await;
     match result {
-        Ok(eid) => { diesel::sql_query("COMMIT").execute(c).await?; Ok((StatusCode::CREATED, Json(serde_json::json!({"ok": true, "entry_id": eid})))) }
+        Ok(eid) => { diesel::sql_query("COMMIT").execute(c).await?; Ok(eid) }
         Err(e) => { let _ = diesel::sql_query("ROLLBACK").execute(c).await; Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())) }
     }
+}
+
+pub async fn post(State(st): State<AppState>, Extension(s): Extension<Session>, Path(id): Path<i64>) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let (_u, company) = active_company(&st, &s.claims.sub).await?;
+    let mut conn = st.pool.get().await.map_err(|_| internal())?;
+    let tx = storage::banks::tx_by_id(&mut conn, id).await?.ok_or_else(|| ApiError::not_found("транзакцията не е намерена"))?;
+    let cp_number = if tx.direction == "in" { "411" } else { "401" };
+    let eid = post_with_account(&mut conn, company.id, &tx, cp_number).await?;
+    Ok((StatusCode::CREATED, Json(serde_json::json!({"ok": true, "entry_id": eid}))))
 }

@@ -586,3 +586,24 @@ pub struct BankTransactionDto {
     pub reference: String,
     pub status: String,
 }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct BankRuleDto {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+    pub keywords: String,
+    #[serde(default = "default_any")]
+    pub direction: String,
+    #[serde(default)]
+    pub priority: i32,
+    #[serde(default = "default_true")]
+    pub is_active: bool,
+    #[serde(default)]
+    pub account_id: i64,
+    #[serde(default)]
+    pub counterpart_id: i64,
+}
+
+fn default_any() -> String { "any".into() }
