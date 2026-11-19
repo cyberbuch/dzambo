@@ -2,6 +2,7 @@
 //! и repo модули по домейн.
 
 pub mod accounts;
+pub mod closing;
 pub mod companies;
 pub mod counterparts;
 pub mod dashboard;

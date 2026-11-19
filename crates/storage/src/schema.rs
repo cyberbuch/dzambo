@@ -334,3 +334,5 @@ diesel::table! {
         credit -> Numeric,
     }
 }
+
+diesel::allow_tables_to_appear_in_same_query!(journal_entries, journal_lines);

@@ -552,3 +552,12 @@ pub struct OpeningDto {
     pub debit: String,
     pub credit: String,
 }
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct ClosingRowDto {
+    pub source: String,
+    pub source_name: String,
+    pub target: String,
+    pub amount: String,
+}
