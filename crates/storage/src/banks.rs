@@ -1,0 +1,87 @@
+//! Банкови сметки и транзакции.
+
+use bigdecimal::BigDecimal;
+use chrono::NaiveDate;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
+
+use crate::{schema::{bank_accounts, bank_transactions}, StorageError};
+
+#[derive(Queryable, Selectable, Insertable, Debug)]
+#[diesel(table_name = bank_accounts)]
+pub struct BankAccount {
+    pub id: i64,
+    pub company_id: i64,
+    pub iban: String,
+    pub bic: String,
+    pub bank_name: String,
+    pub currency: String,
+    pub name: String,
+    pub account_number: String,
+    pub gl_account_id: i64,
+    pub import_format: String,
+    pub balance: BigDecimal,
+}
+
+#[derive(Queryable, Selectable, Debug)]
+#[diesel(table_name = bank_transactions)]
+pub struct BankTransaction {
+    pub id: i64,
+    pub company_id: i64,
+    pub bank_account_id: i64,
+    pub tx_date: NaiveDate,
+    pub amount: BigDecimal,
+    pub direction: String,
+    pub counterpart_name: String,
+    pub description: String,
+    pub reference: String,
+    pub status: String,
+    pub journal_entry_id: i64,
+}
+
+pub async fn accounts(conn: &mut AsyncPgConnection, company_id: i64) -> Result<Vec<BankAccount>, StorageError> {
+    bank_accounts::table.filter(bank_accounts::company_id.eq(company_id)).order(bank_accounts::id.asc())
+        .select(BankAccount::as_select()).load(conn).await.map_err(StorageError::from)
+}
+
+pub async fn create_account(conn: &mut AsyncPgConnection, company_id: i64, name: &str, iban: &str, currency: &str) -> Result<BankAccount, StorageError> {
+    diesel::insert_into(bank_accounts::table)
+        .values((bank_accounts::company_id.eq(company_id), bank_accounts::name.eq(name), bank_accounts::iban.eq(iban), bank_accounts::currency.eq(currency)))
+        .returning(BankAccount::as_returning()).get_result(conn).await.map_err(StorageError::from)
+}
+
+pub async fn transactions(conn: &mut AsyncPgConnection, company_id: i64, account_id: i64) -> Result<Vec<BankTransaction>, StorageError> {
+    bank_transactions::table
+        .filter(bank_transactions::company_id.eq(company_id))
+        .filter(bank_transactions::bank_account_id.eq(account_id))
+        .order(bank_transactions::tx_date.desc())
+        .select(BankTransaction::as_select()).load(conn).await.map_err(StorageError::from)
+}
+
+/// CSV импорт: редове „дата;сума;посока;контрагент;описание;референция".
+pub async fn import_csv(conn: &mut AsyncPgConnection, company_id: i64, account_id: i64, csv: &str) -> Result<i64, StorageError> {
+    let mut n = 0i64;
+    for line in csv.lines() {
+        let cols: Vec<&str> = line.split(';').map(|c| c.trim().trim_matches('"')).collect();
+        if cols.len() < 2 { continue; }
+        let Ok(date) = NaiveDate::parse_from_str(cols[0], "%Y-%m-%d") else { continue };
+        let amount: BigDecimal = cols[1].replace(',', ".").parse().unwrap_or_default();
+        let direction = cols.get(2).copied().unwrap_or("in");
+        let cp = cols.get(3).copied().unwrap_or("");
+        let desc = cols.get(4).copied().unwrap_or("");
+        let reference = cols.get(5).copied().unwrap_or("");
+        diesel::insert_into(bank_transactions::table)
+            .values((
+                bank_transactions::company_id.eq(company_id),
+                bank_transactions::bank_account_id.eq(account_id),
+                bank_transactions::tx_date.eq(date),
+                bank_transactions::amount.eq(amount),
+                bank_transactions::direction.eq(direction),
+                bank_transactions::counterpart_name.eq(cp),
+                bank_transactions::description.eq(desc),
+                bank_transactions::reference.eq(reference),
+            )).execute(conn).await?;
+        n += 1;
+    }
+    Ok(n)
+}

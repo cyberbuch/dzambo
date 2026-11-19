@@ -1,0 +1,23 @@
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS iban TEXT NOT NULL DEFAULT '';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS bic TEXT NOT NULL DEFAULT '';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS bank_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'EUR';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT '';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_number TEXT NOT NULL DEFAULT '';
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS gl_account_id BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS import_format TEXT NOT NULL DEFAULT 'auto';
+
+CREATE TABLE IF NOT EXISTS bank_transactions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    bank_account_id BIGINT NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    tx_date DATE NOT NULL,
+    amount NUMERIC(18,4) NOT NULL DEFAULT 0,
+    direction TEXT NOT NULL DEFAULT 'in',
+    counterpart_name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    reference TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'imported',
+    journal_entry_id BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS bank_tx_account_idx ON bank_transactions (bank_account_id);

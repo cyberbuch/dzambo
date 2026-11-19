@@ -111,7 +111,31 @@ diesel::table! {
     bank_accounts (id) {
         id -> Int8,
         company_id -> Int8,
+        iban -> Text,
+        bic -> Text,
+        bank_name -> Text,
+        currency -> Text,
+        name -> Text,
+        account_number -> Text,
+        gl_account_id -> Int8,
+        import_format -> Text,
         balance -> Numeric,
+    }
+}
+
+diesel::table! {
+    bank_transactions (id) {
+        id -> Int8,
+        company_id -> Int8,
+        bank_account_id -> Int8,
+        tx_date -> Date,
+        amount -> Numeric,
+        direction -> Text,
+        counterpart_name -> Text,
+        description -> Text,
+        reference -> Text,
+        status -> Text,
+        journal_entry_id -> Int8,
     }
 }
 

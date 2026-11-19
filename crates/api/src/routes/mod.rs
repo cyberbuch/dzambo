@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod banks;
 pub mod closing;
 pub mod common;
 pub mod companies;

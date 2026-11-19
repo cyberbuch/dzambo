@@ -561,3 +561,28 @@ pub struct ClosingRowDto {
     pub target: String,
     pub amount: String,
 }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct BankAccountDto {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+    #[serde(default)]
+    pub iban: String,
+    #[serde(default = "default_country")]
+    pub currency: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct BankTransactionDto {
+    pub id: i64,
+    pub tx_date: String,
+    pub amount: String,
+    pub direction: String,
+    pub counterpart_name: String,
+    pub description: String,
+    pub reference: String,
+    pub status: String,
+}
