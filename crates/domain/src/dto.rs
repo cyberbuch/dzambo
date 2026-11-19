@@ -606,6 +606,8 @@ pub struct BankRuleDto {
     pub counterpart_id: i64,
 }
 
+fn default_zero() -> i64 { 0 }
+
 fn default_any() -> String {
     "any".into()
 }
@@ -657,4 +659,33 @@ pub struct StockItemDto {
     pub quantity: String,
     pub avg_unit_cost: String,
     pub value: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct StockDocDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub number: String,
+    pub doc_date: String,
+    pub kind: String,
+    #[serde(default = "default_zero")]
+    pub to_location_id: i64,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub lines: Vec<StockDocLineDto>,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct StockDocLineDto {
+    #[serde(default)]
+    pub product_id: i64,
+    pub quantity: String,
+    #[serde(default)]
+    pub unit_cost: String,
+    #[serde(default)]
+    pub description: String,
 }

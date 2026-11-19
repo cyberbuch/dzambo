@@ -206,6 +206,7 @@ pub fn router(st: AppState) -> Router {
             post(routes::fixed_assets::post_dep),
         )
         .route("/v1/stock/report", get(routes::stock::report))
+        .route("/v1/stock-documents", get(routes::stock_docs::list).post(routes::stock_docs::create))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)

@@ -431,3 +431,28 @@ diesel::table! {
         location_id -> Int8,
     }
 }
+
+diesel::table! {
+    stock_documents (id) {
+        id -> Int8,
+        company_id -> Int8,
+        number -> Text,
+        doc_date -> Date,
+        kind -> Text,
+        from_location_id -> Int8,
+        to_location_id -> Int8,
+        status -> Text,
+        notes -> Text,
+    }
+}
+
+diesel::table! {
+    stock_document_lines (id) {
+        id -> Int8,
+        document_id -> Int8,
+        product_id -> Int8,
+        quantity -> Numeric,
+        unit_cost -> Numeric,
+        description -> Text,
+    }
+}

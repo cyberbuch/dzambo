@@ -21,6 +21,7 @@ pub mod schema;
 pub mod seed;
 pub mod settings;
 pub mod stock;
+pub mod stock_docs;
 pub mod users;
 
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;

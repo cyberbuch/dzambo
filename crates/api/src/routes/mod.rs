@@ -17,4 +17,5 @@ pub mod products;
 pub mod related;
 pub mod settings;
 pub mod stock;
+pub mod stock_docs;
 pub mod vat;
