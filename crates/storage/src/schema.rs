@@ -558,3 +558,122 @@ diesel::table! {
         amount -> Numeric,
     }
 }
+
+diesel::table! {
+    roles (id) {
+        id -> Int8,
+        name -> Text,
+        description -> Text,
+        permissions -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    audit_logs (id) {
+        id -> Int8,
+        company_id -> Int8,
+        user_id -> Int8,
+        user_login -> Text,
+        user_name -> Text,
+        entity_type -> Text,
+        entity_id -> Int8,
+        entity_number -> Text,
+        action -> Text,
+        summary -> Text,
+        old_amount -> Text,
+        new_amount -> Text,
+        old_data -> Nullable<Jsonb>,
+        new_data -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    locations (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        is_active -> Bool,
+    }
+}
+
+diesel::table! {
+    internal_docs (id) {
+        id -> Int8,
+        company_id -> Int8,
+        number -> Text,
+        doc_date -> Date,
+        from_location_id -> Int8,
+        to_location_id -> Int8,
+        status -> Text,
+        notes -> Text,
+        handed_by -> Text,
+        received_by -> Text,
+    }
+}
+
+diesel::table! {
+    internal_doc_lines (id) {
+        id -> Int8,
+        doc_id -> Int8,
+        line_kind -> Text,
+        product_id -> Int8,
+        asset_id -> Int8,
+        quantity -> Numeric,
+        unit_cost -> Numeric,
+        amount -> Numeric,
+        description -> Text,
+    }
+}
+
+diesel::table! {
+    material_issues (id) {
+        id -> Int8,
+        company_id -> Int8,
+        number -> Text,
+        doc_date -> Date,
+        location_id -> Int8,
+        status -> Text,
+        notes -> Text,
+        journal_entry_id -> Int8,
+    }
+}
+
+diesel::table! {
+    material_issue_lines (id) {
+        id -> Int8,
+        doc_id -> Int8,
+        product_id -> Int8,
+        quantity -> Numeric,
+        unit_cost -> Numeric,
+        amount -> Numeric,
+        account_id -> Int8,
+        inventory_account_id -> Int8,
+        line_no -> Int4,
+    }
+}
+
+diesel::table! {
+    stock_account_rules (id) {
+        id -> Int8,
+        company_id -> Int8,
+        kind -> Text,
+        inventory_account_id -> Int8,
+        offset_account_id -> Int8,
+        clearing_account_id -> Int8,
+    }
+}
+
+diesel::table! {
+    fixed_asset_events (id) {
+        id -> Int8,
+        company_id -> Int8,
+        asset_id -> Int8,
+        event_type -> Text,
+        event_date -> Date,
+        amount -> Numeric,
+        location -> Text,
+        reason -> Text,
+    }
+}

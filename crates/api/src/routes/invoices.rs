@@ -257,10 +257,31 @@ pub async fn delete(
     Extension(session): Extension<Session>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
-    let (_u, _company) = active_company(&st, &session.claims.sub).await?;
+    let (u, company) = active_company(&st, &session.claims.sub).await?;
     let mut c = conn(&st).await?;
+    let old = invoices::by_id(&mut c, id).await?;
     storage::journal::delete_by_document(&mut c, id).await?;
     invoices::delete(&mut c, id).await?;
+    if let Some(row) = old {
+        let amt = format!("{:.2} {}", row.0.total_amount, row.0.currency);
+        let _ = storage::access::record(
+            &mut c,
+            company.id,
+            u.id,
+            &u.email,
+            &u.name,
+            "invoice",
+            id,
+            &row.0.number,
+            "delete",
+            &format!("Изтрита фактура {}", row.0.number),
+            &amt,
+            "",
+            None,
+            None,
+        )
+        .await;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -290,8 +311,47 @@ pub async fn post(
     Extension(session): Extension<Session>,
     Path(id): Path<i64>,
 ) -> Result<(StatusCode, Json<JournalEntryDto>), ApiError> {
-    let (_u, _company) = active_company(&st, &session.claims.sub).await?;
+    let (u, company) = active_company(&st, &session.claims.sub).await?;
     let row = posting::post_invoice(&st.pool, id).await?;
+    let mut c = conn(&st).await?;
+    if let Some(inv) = invoices::by_id(&mut c, id).await? {
+        let amt = format!("{:.2} {}", inv.0.total_amount, inv.0.currency);
+        let summary = format!("Постната фактура {}", inv.0.number);
+        let _ = storage::access::record(
+            &mut c,
+            company.id,
+            u.id,
+            &u.email,
+            &u.name,
+            "invoice",
+            id,
+            &inv.0.number,
+            "post",
+            &summary,
+            "",
+            &amt,
+            None,
+            None,
+        )
+        .await;
+        let _ = storage::access::record(
+            &mut c,
+            company.id,
+            u.id,
+            &u.email,
+            &u.name,
+            "journal",
+            row.0.id,
+            &inv.0.number,
+            "create",
+            &summary,
+            "",
+            &amt,
+            None,
+            None,
+        )
+        .await;
+    }
     Ok((
         StatusCode::CREATED,
         Json(mappers_invoices::journal_dto(&row)),
@@ -303,8 +363,28 @@ pub async fn unpost(
     Extension(session): Extension<Session>,
     Path(id): Path<i64>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let (_u, _company) = active_company(&st, &session.claims.sub).await?;
+    let (u, company) = active_company(&st, &session.claims.sub).await?;
     posting::unpost_invoice(&st.pool, id).await?;
+    let mut c = conn(&st).await?;
+    if let Some(inv) = invoices::by_id(&mut c, id).await? {
+        let _ = storage::access::record(
+            &mut c,
+            company.id,
+            u.id,
+            &u.email,
+            &u.name,
+            "invoice",
+            id,
+            &inv.0.number,
+            "unpost",
+            &format!("Отпостната фактура {}", inv.0.number),
+            "",
+            "",
+            None,
+            None,
+        )
+        .await;
+    }
     Ok(Json(serde_json::json!({"ok": true})))
 }
 

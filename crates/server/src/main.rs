@@ -15,6 +15,7 @@ async fn main() {
     storage::seed::run(&pool).await.expect("seed");
 
     let mut conn = pool.get().await.expect("връзка");
+    storage::access::seed_roles(&mut conn).await.expect("роли");
     let jwt_secret = storage::settings::ensure_jwt_secret(&mut conn)
         .await
         .expect("jwt тайна");

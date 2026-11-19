@@ -10,6 +10,7 @@ pub mod routes;
 pub mod saft;
 pub mod state;
 pub mod ubl;
+pub mod vatfile;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -46,17 +47,78 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/units", get(routes::master::units))
         .route("/v1/vat-exemptions", get(routes::vat_ex::index))
         .route("/v1/saft/nomenclatures", get(routes::compat::nomenclatures))
-        .route("/v1/saft/movement-mappings", get(routes::compat::movement_mappings))
+        .route(
+            "/v1/saft/movement-mappings",
+            get(routes::compat::movement_mappings),
+        )
         .route("/v1/exchange-rates", get(routes::compat::exchange_rates))
-        .route("/v1/audit-logs", get(routes::compat::audit_logs))
-        .route("/v1/roles", get(routes::compat::roles))
+        .route("/v1/audit-logs", get(routes::access::list_audit))
+        .route(
+            "/v1/audit-logs/{entity}/{id}",
+            get(routes::access::audit_for),
+        )
+        .route(
+            "/v1/roles",
+            get(routes::access::list_roles).post(routes::access::create_role),
+        )
+        .route(
+            "/v1/roles/{id}",
+            axum::routing::patch(routes::access::update_role).delete(routes::access::delete_role),
+        )
         .route("/v1/users", get(routes::compat::users))
-        .route("/v1/internal-docs", get(routes::compat::internal_docs))
-        .route("/v1/material-issues", get(routes::compat::material_issues))
-        .route("/v1/stock/rules", get(routes::compat::stock_rules))
+        .route(
+            "/v1/internal-docs",
+            get(routes::idocs::list).post(routes::idocs::create),
+        )
+        .route(
+            "/v1/internal-docs/next-number",
+            get(routes::idocs::next_number),
+        )
+        .route(
+            "/v1/internal-docs/{id}",
+            get(routes::idocs::show)
+                .patch(routes::idocs::update)
+                .delete(routes::idocs::delete),
+        )
+        .route(
+            "/v1/internal-docs/{id}/confirm",
+            post(routes::idocs::confirm),
+        )
+        .route("/v1/internal-docs/{id}/print", get(routes::idocs::print))
+        .route(
+            "/v1/material-issues",
+            get(routes::stockops::list_issues).post(routes::stockops::create_issue),
+        )
+        .route(
+            "/v1/material-issues/{id}",
+            get(routes::stockops::show_issue)
+                .patch(routes::stockops::update_issue)
+                .delete(routes::stockops::delete_issue),
+        )
+        .route(
+            "/v1/material-issues/{id}/confirm",
+            post(routes::stockops::confirm_issue),
+        )
+        .route(
+            "/v1/material-issues/{id}/unpost",
+            post(routes::stockops::unpost_issue),
+        )
+        .route(
+            "/v1/stock/rules",
+            get(routes::stockops::list_rules).post(routes::stockops::create_rule),
+        )
+        .route(
+            "/v1/stock/rules/{id}",
+            axum::routing::delete(routes::stockops::delete_rule),
+        )
+        .route("/v1/stock/writeoff", post(routes::stockops::writeoff))
+        .route("/v1/stock/rebuild", post(routes::stockops::rebuild))
+        .route(
+            "/v1/locations",
+            get(routes::stockops::list_locations).post(routes::stockops::create_location),
+        )
         .route("/v1/fs/formulas", get(routes::compat::fs_formulas))
         .route("/v1/system-settings", get(routes::compat::system_settings))
-
         .route(
             "/v1/accounts/{id}",
             get(routes::master::show)
@@ -166,6 +228,9 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/vat/sales", get(routes::vat::sales))
         .route("/v1/vat/purchases", get(routes::vat::purchases))
         .route("/v1/vat/file", get(routes::vat::file))
+        .route("/v1/vat/export", get(routes::vat_export::export))
+        .route("/v1/vat/registers", get(routes::vat_export::registers))
+        .route("/v1/vat/return", get(routes::vat_export::registers))
         .route(
             "/v1/opening-balances",
             get(routes::opening::list).put(routes::opening::save),

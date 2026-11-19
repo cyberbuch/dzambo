@@ -1,6 +1,7 @@
 //! Diesel + diesel-async + PostgreSQL слой: pool, миграции, seed,
 //! и repo модули по домейн.
 
+pub mod access;
 pub mod accounts;
 pub mod bank_formats;
 pub mod bank_rules;
@@ -11,6 +12,7 @@ pub mod counterparts;
 pub mod dashboard;
 pub mod dividends;
 pub mod fixed_assets;
+pub mod idocs;
 pub mod invoices;
 pub mod journal;
 pub mod mfg;
@@ -24,6 +26,8 @@ pub mod seed;
 pub mod settings;
 pub mod stock;
 pub mod stock_docs;
+pub mod stock_replay;
+pub mod stockops;
 pub mod users;
 
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
@@ -39,6 +43,7 @@ pub const DEFAULT_URL: &str = "postgres://dzambo:dzambo@127.0.0.1:5434/dzambo";
 
 pub type DbConn = Object<AsyncPgConnection>;
 pub type DbPool = Pool<AsyncPgConnection>;
+pub type StorageResult<T> = Result<T, StorageError>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {

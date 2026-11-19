@@ -28,17 +28,34 @@ pub const CATALOG: &[&str] = &[
 ];
 
 pub struct VatExemption {
-    pub code: String, pub name: String, pub name_en: String,
-    pub legal_basis: String, pub legal_basis_en: String,
-    pub ubl_category_code: String, pub ubl_exemption_code: String, pub description: String,
+    pub code: String,
+    pub name: String,
+    pub name_en: String,
+    pub legal_basis: String,
+    pub legal_basis_en: String,
+    pub ubl_category_code: String,
+    pub ubl_exemption_code: String,
+    pub description: String,
 }
 
 pub fn items(search: &str) -> Vec<VatExemption> {
     let needle = search.trim().to_lowercase();
-    CATALOG.iter().filter(|line| needle.is_empty() || line.to_lowercase().contains(&needle))
+    CATALOG
+        .iter()
+        .filter(|line| needle.is_empty() || line.to_lowercase().contains(&needle))
         .map(|line| {
             let f: Vec<&str> = line.split('|').collect();
             let g = |i: usize| f.get(i).copied().unwrap_or("").to_string();
-            VatExemption { code: g(0), name: g(1), name_en: g(2), legal_basis: g(3), legal_basis_en: g(4), ubl_category_code: g(5), ubl_exemption_code: g(6), description: g(7) }
-        }).collect()
+            VatExemption {
+                code: g(0),
+                name: g(1),
+                name_en: g(2),
+                legal_basis: g(3),
+                legal_basis_en: g(4),
+                ubl_category_code: g(5),
+                ubl_exemption_code: g(6),
+                description: g(7),
+            }
+        })
+        .collect()
 }

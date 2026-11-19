@@ -40,5 +40,10 @@ pub async fn insert(conn: &mut AsyncPgConnection, new: &NewUser<'_>) -> Result<U
 }
 
 pub async fn list_all(conn: &mut AsyncPgConnection) -> Result<Vec<User>, StorageError> {
-    users::table.order(users::id.asc()).select(User::as_select()).load(conn).await.map_err(StorageError::from)
+    users::table
+        .order(users::id.asc())
+        .select(User::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
 }

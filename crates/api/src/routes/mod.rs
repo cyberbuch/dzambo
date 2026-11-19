@@ -1,3 +1,4 @@
+pub mod access;
 pub mod auth;
 pub mod bank_rules;
 pub mod banks;
@@ -8,6 +9,7 @@ pub mod counterparts;
 pub mod dashboard;
 pub mod dividends;
 pub mod fixed_assets;
+pub mod idocs;
 pub mod invoices;
 pub mod journal;
 pub mod master;
@@ -21,7 +23,9 @@ pub mod related;
 pub mod settings;
 pub mod stock;
 pub mod stock_docs;
+pub mod stockops;
 pub mod vat;
+pub mod vat_export;
 
 pub mod vat_ex;
 

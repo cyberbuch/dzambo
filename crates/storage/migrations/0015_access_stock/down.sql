@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS fixed_asset_events;
+DROP TABLE IF EXISTS stock_account_rules;
+DROP TABLE IF EXISTS material_issue_lines;
+DROP TABLE IF EXISTS material_issues;
+DROP TABLE IF EXISTS internal_doc_lines;
+DROP TABLE IF EXISTS internal_docs;
+DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS roles;
