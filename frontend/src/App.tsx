@@ -10,6 +10,7 @@ import LoginPage from "@/features/auth/LoginPage";
 import ProductsPage from "@/features/products/ProductsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
 import VatPage from "@/features/vat/VatPage";
+import ClosingPage from "@/features/closing/ClosingPage";
 import { useSession } from "@/stores/session";
 
 function Guard() {
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
             <Route path="vat" element={<VatPage />} />
+            <Route path="closing" element={<ClosingPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

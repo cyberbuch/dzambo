@@ -11,6 +11,7 @@ const links = [
   { to: "/invoices", label: "Фактури", end: false },
   { to: "/settings", label: "Настройки", end: false },
   { to: "/vat", label: "ДДС", end: false },
+  { to: "/closing", label: "Приключване", end: false },
 ];
 
 export default function AppShell() {
