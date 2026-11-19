@@ -170,11 +170,16 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
         }
 
         let vat_total: BigDecimal = lines.iter().map(|l| l.vat_amount.clone()).sum();
+        let net_total: BigDecimal = lines.iter().map(|l| l.net_amount.clone()).sum();
+        // Контролната сума (клиенти/доставчици) се извежда от редовете, а не от
+        // хедъра — така статията винаги е балансирана (Дт = Кт), дори при
+        // неконсистентен total_amount в хедъра.
+        let control = &net_total + &vat_total;
         let mut new_lines: Vec<NewJournalLine> = Vec::new();
 
         match inv.direction.as_str() {
             "out" => {
-                new_lines.push(mk(&customers, "debit", signed(&inv.total_amount)));
+                new_lines.push(mk(&customers, "debit", signed(&control)));
                 for line in &lines {
                     let acct = line_account(&prod_map, &id_map, line.product_id, true, &revenues);
                     new_lines.push(mk(acct, "credit", signed(&line.net_amount)));
@@ -224,7 +229,7 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
                 if !vat_total.is_zero() {
                     new_lines.push(mk(&vat_purchase, "debit", signed(&vat_total)));
                 }
-                new_lines.push(mk(&suppliers, "credit", signed(&inv.total_amount)));
+                new_lines.push(mk(&suppliers, "credit", signed(&control)));
             }
         }
 
