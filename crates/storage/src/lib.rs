@@ -8,6 +8,7 @@ pub mod dashboard;
 pub mod invoices;
 pub mod journal;
 pub mod models;
+pub mod opening;
 pub mod periods;
 pub mod products;
 pub mod related;

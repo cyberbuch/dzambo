@@ -541,3 +541,14 @@ pub struct VatRowDto {
     pub vat_amount: String,
     pub total_amount: String,
 }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct OpeningDto {
+    #[serde(default)]
+    pub id: i64,
+    pub account_id: i64,
+    pub year: i32,
+    pub debit: String,
+    pub credit: String,
+}

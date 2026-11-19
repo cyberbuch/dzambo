@@ -323,3 +323,14 @@ diesel::table! {
         notes -> Text,
     }
 }
+
+diesel::table! {
+    opening_balances (id) {
+        id -> Int8,
+        company_id -> Int8,
+        account_id -> Int8,
+        year -> Int4,
+        debit -> Numeric,
+        credit -> Numeric,
+    }
+}

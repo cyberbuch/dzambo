@@ -149,6 +149,8 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/vat/sales", get(routes::vat::sales))
         .route("/v1/vat/purchases", get(routes::vat::purchases))
         .route("/v1/vat/file", get(routes::vat::file))
+        .route("/v1/opening-balances", get(routes::opening::list).put(routes::opening::save))
+        .route("/v1/opening-balances/{id}", axum::routing::delete(routes::opening::delete))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)
