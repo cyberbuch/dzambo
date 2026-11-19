@@ -1,0 +1,438 @@
+"use client";
+
+// Банкови сметки: CRUD + избор на счетоводна (ГЛ) и буферна сметка.
+// Порт на secret/su-doxis bank_accounts.rs върху bagabuch REST API.
+
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { RequireAuth } from "../../components/RequireAuth";
+import { useI18n } from "../../components/I18nProvider";
+import { api, fetchAll, getActiveCompany, ACTIVE_COMPANY_EVENT } from "../../lib/api";
+import { IconButton } from "../../components/IconButton";
+import { Pagination } from "../../components/Pagination";
+
+const PAGE_SIZE = 50;
+
+interface BankAccount {
+  id: number;
+  iban: string;
+  bic: string;
+  bank_name: string;
+  currency: string;
+  name: string;
+  account_number: string;
+  gl_account_id: number;
+  buffer_account_id: number;
+  import_format?: string;
+  balance: string;
+  gl_account_code?: string;
+  buffer_account_code?: string;
+}
+
+interface Account {
+  id: number;
+  number: string;
+  name: string;
+}
+
+const emptyForm = {
+  name: "",
+  bank_name: "",
+  account_number: "",
+  iban: "",
+  bic: "",
+  currency: "EUR",
+  balance: "0.00",
+  gl_account_id: 0,
+  buffer_account_id: 0,
+  import_format: "auto",
+};
+
+function BankAccountsInner() {
+  const { t } = useI18n();
+  const [rows, setRows] = useState<BankAccount[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<BankAccount | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [q, setQ] = useState("");
+  const [offset, setOffset] = useState(0);
+  // валутата по подразбиране е тази на фирмата (еврозона от 2026), не BGN
+  const [companyCurrency, setCompanyCurrency] = useState("EUR");
+  // валути от ЕЦБ (еврото е базово) + валутата на фирмата
+  const [ecbCurrencies, setEcbCurrencies] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get<{ items: { currency_code: string }[] }>("/v1/exchange-rates")
+      .then((d) => setEcbCurrencies((d.items ?? []).map((x) => x.currency_code)))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const read = () => {
+      getActiveCompany()
+        .then((c) => {
+          const cur = (c as { currency?: unknown }).currency;
+          if (typeof cur === "string" && cur) setCompanyCurrency(cur.toUpperCase());
+        })
+        .catch(() => {});
+    };
+    read();
+    window.addEventListener(ACTIVE_COMPANY_EVENT, read);
+    return () => window.removeEventListener(ACTIVE_COMPANY_EVENT, read);
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [b, a] = await Promise.all([
+        fetchAll<BankAccount>("/v1/bank-accounts"),
+        fetchAll<Account>("/v1/accounts"),
+      ]);
+      setRows(b);
+      setAccounts(a);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const openCreate = () => {
+    setForm({ ...emptyForm, currency: companyCurrency });
+    setEditing(null);
+    setFormError("");
+    setModalOpen(true);
+  };
+
+  const openEdit = (acc: BankAccount) => {
+    setForm({
+      name: acc.name,
+      bank_name: acc.bank_name ?? "",
+      account_number: acc.account_number ?? "",
+      iban: acc.iban,
+      bic: acc.bic ?? "",
+      currency: acc.currency || companyCurrency,
+      balance: acc.balance || "0.00",
+      gl_account_id: acc.gl_account_id || 0,
+      buffer_account_id: acc.buffer_account_id || 0,
+      import_format: acc.import_format || "auto",
+    });
+    setEditing(acc);
+    setFormError("");
+    setModalOpen(true);
+  };
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError("");
+    try {
+      const payload = {
+        name: form.name,
+        bank_name: form.bank_name,
+        account_number: form.account_number,
+        iban: form.iban,
+        bic: form.bic,
+        currency: form.currency,
+        balance: form.balance,
+        gl_account_id: form.gl_account_id,
+        buffer_account_id: form.buffer_account_id,
+        import_format: form.import_format,
+      };
+      if (editing) {
+        await api.patch(`/v1/bank-accounts/${editing.id}`, payload);
+      } else {
+        await api.post("/v1/bank-accounts", payload);
+      }
+      setModalOpen(false);
+      await load();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (acc: BankAccount) => {
+    if (!window.confirm(t("common.confirmDelete"))) return;
+    try {
+      await api.del(`/v1/bank-accounts/${acc.id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return rows;
+    return rows.filter((b) =>
+      `${b.name} ${b.iban} ${b.bank_name} ${b.bic}`
+        .toLowerCase()
+        .includes(s)
+    );
+  }, [rows, q]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(Math.floor(offset / PAGE_SIZE), pageCount - 1);
+  const start = page * PAGE_SIZE;
+  const paged = filtered.slice(start, start + PAGE_SIZE);
+
+  const accountCode = (id: number) => {
+    if (!id) return "-";
+    const a = accounts.find((x) => x.id === id);
+    return a?.number || "-";
+  };
+
+  const accountOptions = (value: number, onChange: (v: number) => void) => (
+    <select
+      className="select"
+      value={value || 0}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      <option value={0}>{t("bank_accounts.pick_account")}</option>
+      {accounts.map((a) => (
+        <option key={a.id} value={a.id}>
+          {a.number} — {a.name}
+        </option>
+      ))}
+    </select>
+  );
+
+  return (
+    <div>
+      <div className="page-head">
+        <h1 className="page-title">{t("bank_accounts.title")}</h1>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-primary" onClick={openCreate} type="button">
+            {t("common.create")}
+          </button>
+        </div>
+      </div>
+      {error && <div className="error-text">{error}</div>}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <input
+          className="input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("common.search")}
+        />
+      </div>
+      <div className="card">
+        {loading ? (
+          <div className="content muted">{t("common.loading")}</div>
+        ) : filtered.length === 0 ? (
+          <div className="content muted">
+            {rows.length === 0 ? t("bank_accounts.empty") : t("common.empty")}
+          </div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t("bank_accounts.name")}</th>
+                <th>{t("bank_accounts.bank_name")}</th>
+                <th>{t("bank_accounts.iban")}</th>
+                <th>{t("bank_accounts.gl_account")}</th>
+                <th>{t("bank_accounts.buffer_account")}</th>
+                <th style={{ textAlign: "right" }}>
+                  {t("bank_accounts.balance")}
+                </th>
+                <th>{t("common.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((b) => (
+                <tr key={b.id}>
+                  <td style={{ fontWeight: 500 }}>{b.name}</td>
+                  <td>{b.bank_name}</td>
+                  <td style={{ fontFamily: "ui-monospace, monospace" }}>
+                    {b.iban}
+                  </td>
+                  <td style={{ fontFamily: "ui-monospace, monospace" }}>
+                    {accountCode(b.gl_account_id)}
+                  </td>
+                  <td style={{ fontFamily: "ui-monospace, monospace" }}>
+                    {accountCode(b.buffer_account_id)}
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 500 }}>
+                    {b.balance} {b.currency}
+                  </td>
+                  <td>
+                    <div className="icon-actions">
+                      <IconButton
+                        icon="edit"
+                        title={t("common.edit")}
+                        onClick={() => openEdit(b)}
+                      />
+                      <IconButton
+                        icon="delete"
+                        title={t("common.delete")}
+                        danger
+                        onClick={() => handleDelete(b)}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <Pagination
+          total={filtered.length}
+          limit={PAGE_SIZE}
+          offset={start}
+          onPageChange={setOffset}
+        />
+      </div>
+
+      {modalOpen && (
+        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
+          <div
+            className="card modal"
+            style={{ maxWidth: 680 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="modal-title">
+              {editing ? t("common.edit") : t("common.create")}
+            </h2>
+            <form onSubmit={handleSave}>
+              <div className="form-grid">
+                <div className="field">
+                  <label className="label">{t("bank_accounts.name")} *</label>
+                  <input
+                    className="input"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder={t("bank_accounts.name_placeholder")}
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.bank_name")}</label>
+                  <input
+                    className="input"
+                    value={form.bank_name}
+                    onChange={(e) =>
+                      setForm({ ...form, bank_name: e.target.value })
+                    }
+                    placeholder={t("bank_accounts.bank_name_placeholder")}
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.iban")} *</label>
+                  <input
+                    className="input"
+                    required
+                    value={form.iban}
+                    onChange={(e) => setForm({ ...form, iban: e.target.value })}
+                    placeholder={t("bank_accounts.iban_placeholder")}
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.bic")}</label>
+                  <input
+                    className="input"
+                    value={form.bic}
+                    onChange={(e) => setForm({ ...form, bic: e.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.currency")}</label>
+                  <select
+                    className="select"
+                    value={form.currency}
+                    onChange={(e) =>
+                      setForm({ ...form, currency: e.target.value })
+                    }
+                  >
+                    {!ecbCurrencies.includes(form.currency) && form.currency !== "" && (
+                      <option value={form.currency}>{form.currency}</option>
+                    )}
+                    <option value={companyCurrency}>{companyCurrency}</option>
+                    {ecbCurrencies.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.balance")}</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.01"
+                    value={form.balance}
+                    onChange={(e) =>
+                      setForm({ ...form, balance: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.gl_account")}</label>
+                  {accountOptions(form.gl_account_id, (v) =>
+                    setForm({ ...form, gl_account_id: v })
+                  )}
+                </div>
+                <div className="field">
+                  <label className="label">
+                    {t("bank_accounts.buffer_account")}
+                  </label>
+                  {accountOptions(form.buffer_account_id, (v) =>
+                    setForm({ ...form, buffer_account_id: v })
+                  )}
+                </div>
+                <div className="field">
+                  <label className="label">{t("bank_accounts.format")}</label>
+                  <select
+                    className="select"
+                    value={form.import_format}
+                    onChange={(e) => setForm({ ...form, import_format: e.target.value })}
+                  >
+                    <option value="auto">{t("bank_accounts.format_auto")}</option>
+                    <option value="camt053">ISO camt.053</option>
+                    <option value="postbank">Postbank XML</option>
+                    <option value="unicredit">UniCredit XML</option>
+                    <option value="obb">OBB XML</option>
+                    <option value="mt940">MT940</option>
+                    <option value="csv">CSV</option>
+                  </select>
+                </div>
+              </div>
+              {formError && <div className="error-text">{formError}</div>}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setModalOpen(false)}
+                >
+                  {t("common.cancel")}
+                </button>
+                <button className="btn btn-primary" disabled={saving}>
+                  {t("common.save")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function BankAccountsPage() {
+  return (
+    <RequireAuth>
+      <BankAccountsInner />
+    </RequireAuth>
+  );
+}
