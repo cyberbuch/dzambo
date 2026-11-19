@@ -42,7 +42,7 @@ fn closing_map(settings: &serde_json::Value) -> Vec<(String, String)> {
         _ => out.push(("60".into(), "611".into())),
     }
     if out.is_empty() { out.push(("60".into(), "611".into())); }
-    out.sort_by(|a, b| b.0.len().cmp(&a.0.len())); // най-дълъг префикс пръв
+    out.sort_by_key(|(s, _)| std::cmp::Reverse(s.len())); // най-дълъг префикс пръв
     out
 }
 
