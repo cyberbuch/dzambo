@@ -21,6 +21,7 @@ pub mod opening;
 pub mod password_reset;
 pub mod periods;
 pub mod products;
+pub mod rates;
 pub mod related;
 pub mod schema;
 pub mod seed;

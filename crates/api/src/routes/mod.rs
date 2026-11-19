@@ -20,6 +20,7 @@ pub mod nomenclatures;
 pub mod opening;
 pub mod periods;
 pub mod products;
+pub mod rates;
 pub mod related;
 pub mod settings;
 pub mod stock;

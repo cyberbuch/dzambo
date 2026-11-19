@@ -64,7 +64,10 @@ pub fn router(st: AppState) -> Router {
             "/v1/saft/movement-mappings",
             get(routes::compat::movement_mappings),
         )
-        .route("/v1/exchange-rates", get(routes::compat::exchange_rates))
+        .route("/v1/exchange-rates", get(routes::rates::index))
+        .route("/v1/exchange-rates/rate", get(routes::rates::rate))
+        .route("/v1/exchange-rates/cross", get(routes::rates::cross))
+        .route("/v1/exchange-rates/import", post(routes::rates::import))
         .route("/v1/audit-logs", get(routes::access::list_audit))
         .route(
             "/v1/audit-logs/{entity}/{id}",

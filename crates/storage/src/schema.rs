@@ -688,3 +688,13 @@ diesel::table! {
         created_at -> Timestamptz,
     }
 }
+
+diesel::table! {
+    exchange_rates (id) {
+        id -> Int8,
+        currency_code -> Text,
+        rate -> Numeric,
+        rate_date -> Date,
+        created_at -> Timestamptz,
+    }
+}
