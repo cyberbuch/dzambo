@@ -13,6 +13,7 @@ const links = [
   { to: "/vat", label: "ДДС", end: false },
   { to: "/closing", label: "Приключване", end: false },
   { to: "/banks", label: "Банки", end: false },
+  { to: "/rules", label: "Правила", end: false },
 ];
 
 export default function AppShell() {
