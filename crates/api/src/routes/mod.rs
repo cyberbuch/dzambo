@@ -22,3 +22,7 @@ pub mod settings;
 pub mod stock;
 pub mod stock_docs;
 pub mod vat;
+
+pub mod vat_ex;
+
+pub mod compat;

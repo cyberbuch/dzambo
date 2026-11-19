@@ -12,3 +12,5 @@ mod tests {
         // Тестовият ранър задейства ts-rs export на DTO-тата.
     }
 }
+
+pub mod vat_ex;

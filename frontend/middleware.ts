@@ -4,13 +4,14 @@ const CSP_NONCE_HEADER = "x-nonce";
 
 export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${devEval};
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob:;
     font-src 'self' data:;
-    connect-src 'self' http://127.0.0.1:8092 http://localhost:8092;
+    connect-src 'self' http://127.0.0.1:8092 http://localhost:8092 http://127.0.0.1:8095 http://localhost:8095;
     frame-src 'self' blob:;
     frame-ancestors 'none';
     base-uri 'self';
