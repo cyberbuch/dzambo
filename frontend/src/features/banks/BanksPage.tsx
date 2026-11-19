@@ -109,7 +109,7 @@ export default function BanksPage() {
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex flex-col gap-2">
-              <Label>CSV импорт (дата;сума;посока;контрагент;описание;референция)</Label>
+              <Label>Импорт — CSV, MT940 или camt.053 (авто-разпознаване)</Label>
               <textarea
                 value={csv}
                 onChange={(e) => setCsv(e.target.value)}
