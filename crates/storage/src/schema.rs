@@ -108,24 +108,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    invoices (id) {
-        id -> Int8,
-        company_id -> Int8,
-        number -> Text,
-        issue_date -> Date,
-        counterpart_id -> Int8,
-        counterpart_name -> Text,
-        currency -> Text,
-        net_amount -> Numeric,
-        vat_amount -> Numeric,
-        total_amount -> Numeric,
-        status -> Text,
-        direction -> Text,
-        created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     bank_accounts (id) {
         id -> Int8,
         company_id -> Int8,
@@ -252,5 +234,92 @@ diesel::table! {
         pad_width -> Int4,
         start_number -> Int4,
         next_number -> Text,
+    }
+}
+
+diesel::table! {
+    invoices (id) {
+        id -> Int8,
+        company_id -> Int8,
+        direction -> Text,
+        document_type -> Text,
+        number -> Text,
+        issue_date -> Date,
+        due_date -> Nullable<Date>,
+        counterpart_id -> Int8,
+        counterpart_name -> Text,
+        currency -> Text,
+        currency_rate -> Numeric,
+        net_amount -> Numeric,
+        vat_amount -> Numeric,
+        total_amount -> Numeric,
+        status -> Text,
+        payment_method -> Text,
+        notes -> Text,
+        accounting_month -> Text,
+        original_invoice_id -> Int8,
+        journal_entry_id -> Int8,
+    }
+}
+
+diesel::table! {
+    invoice_lines (id) {
+        id -> Int8,
+        invoice_id -> Int8,
+        code -> Text,
+        description -> Text,
+        quantity -> Numeric,
+        unit -> Text,
+        unit_price -> Numeric,
+        vat_rate -> Numeric,
+        product_id -> Int8,
+        net_amount -> Numeric,
+        vat_amount -> Numeric,
+        total_amount -> Numeric,
+    }
+}
+
+diesel::table! {
+    journal_entries (id) {
+        id -> Int8,
+        company_id -> Int8,
+        entry_date -> Date,
+        document_type -> Text,
+        document_id -> Int8,
+        document_number -> Text,
+        description -> Text,
+        vat_type -> Text,
+        counterpart_id -> Int8,
+        counterpart_name -> Text,
+        document_date -> Date,
+        vat_period -> Text,
+    }
+}
+
+diesel::table! {
+    journal_lines (id) {
+        id -> Int8,
+        entry_id -> Int8,
+        account_id -> Int8,
+        account_number -> Text,
+        account_name -> Text,
+        direction -> Text,
+        amount -> Numeric,
+        vat_amount -> Numeric,
+        currency -> Text,
+        fx_quantity -> Numeric,
+        fx_rate -> Numeric,
+    }
+}
+
+diesel::table! {
+    accounting_periods (id) {
+        id -> Int8,
+        company_id -> Int8,
+        year -> Int4,
+        month -> Int4,
+        status -> Text,
+        closed_at -> Nullable<Timestamptz>,
+        notes -> Text,
     }
 }

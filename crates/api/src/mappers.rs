@@ -9,7 +9,7 @@ use domain::dto::{
 use storage::{
     companies::Membership,
     dashboard::DashboardNumbers,
-    models::{InvoiceSummary, User},
+    models::{invoices::Invoice, User},
 };
 
 fn iso(ts: &chrono::DateTime<chrono::Utc>) -> String {
@@ -93,7 +93,7 @@ pub fn me_dto(u: &User, memberships: &[Membership]) -> MeDto {
     }
 }
 
-pub fn recent_dto(r: &InvoiceSummary) -> RecentInvoiceDto {
+pub fn recent_dto(r: &Invoice) -> RecentInvoiceDto {
     RecentInvoiceDto {
         id: r.id,
         number: r.number.clone(),

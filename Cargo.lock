@@ -60,6 +60,8 @@ dependencies = [
  "axum",
  "bigdecimal",
  "chrono",
+ "diesel",
+ "diesel-async",
  "domain",
  "serde",
  "serde_json",

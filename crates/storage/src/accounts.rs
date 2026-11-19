@@ -92,3 +92,51 @@ pub async fn number_taken(
         .optional()?;
     Ok(taken.is_some())
 }
+
+/// Стандартни сметки по подразбиране — създават се при първа нужда.
+pub const DEFAULT_ACCOUNTS: &[(&str, &str)] = &[
+    ("411", "Вземания от клиенти"),
+    ("401", "Задължения към доставчици"),
+    ("4531", "Начислен ДДС по признаване"),
+    ("4532", "Начислен ДДС върху продажбите"),
+    ("702", "Приходи от продажби на стоки"),
+    ("602", "Разходи за стоки"),
+];
+
+/// Връща сметката по номер; ако липсва — я създава (правило на ytbuch).
+pub async fn get_or_create(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    number: &str,
+) -> Result<crate::models::Account, StorageError> {
+    let existing: Option<i64> = accounts::table
+        .filter(accounts::company_id.eq(company_id))
+        .filter(accounts::number.eq(number))
+        .select(accounts::id)
+        .first(conn)
+        .await
+        .optional()?;
+    if let Some(id) = existing {
+        return Ok(accounts::table
+            .find(id)
+            .select(crate::models::Account::as_select())
+            .first(conn)
+            .await?);
+    }
+    let name = DEFAULT_ACCOUNTS
+        .iter()
+        .find(|(n, _)| *n == number)
+        .map(|(_, name)| *name)
+        .unwrap_or("");
+    insert(
+        conn,
+        &NewAccount {
+            company_id,
+            number,
+            name,
+            saft_account_type: "",
+            is_currency: false,
+        },
+    )
+    .await
+}

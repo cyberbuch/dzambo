@@ -379,3 +379,153 @@ pub struct SeedSaftDto {
     pub skipped: i64,
     pub total: i64,
 }
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct InvoiceLineDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub code: String,
+    pub description: String,
+    pub quantity: Option<String>,
+    #[serde(default)]
+    pub unit: String,
+    pub unit_price: Option<String>,
+    pub vat_rate: Option<String>,
+    pub net_amount: Option<String>,
+    pub vat_amount: Option<String>,
+    pub total_amount: Option<String>,
+    #[serde(default)]
+    pub product_id: i64,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct InvoiceDto {
+    #[serde(default)]
+    pub id: i64,
+    pub direction: String,
+    #[serde(default = "default_doc_type")]
+    pub document_type: String,
+    #[serde(default)]
+    pub number: String,
+    pub issue_date: String,
+    #[serde(default)]
+    pub due_date: String,
+    #[serde(default)]
+    pub counterpart_id: i64,
+    #[serde(default)]
+    pub counterpart_name: String,
+    #[serde(default = "default_country")]
+    pub currency: String,
+    #[serde(default)]
+    pub currency_rate: Option<String>,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub net_amount: Option<String>,
+    #[serde(default)]
+    pub vat_amount: Option<String>,
+    #[serde(default)]
+    pub total_amount: Option<String>,
+    #[serde(default)]
+    pub accounting_month: String,
+    #[serde(default)]
+    pub original_invoice_id: i64,
+    #[serde(default)]
+    pub lines: Vec<InvoiceLineDto>,
+}
+
+fn default_doc_type() -> String {
+    "01".into()
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct JournalLineDto {
+    pub id: i64,
+    pub account_id: i64,
+    pub account_number: String,
+    pub account_name: String,
+    pub direction: String,
+    pub amount: String,
+    pub vat_amount: String,
+    pub currency: String,
+    pub fx_quantity: String,
+    pub fx_rate: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct JournalEntryDto {
+    pub id: i64,
+    pub entry_date: String,
+    pub document_type: String,
+    pub document_id: i64,
+    pub document_number: String,
+    pub description: String,
+    pub vat_type: String,
+    pub counterpart_id: i64,
+    pub counterpart_name: String,
+    pub document_date: String,
+    pub vat_period: String,
+    pub lines: Vec<JournalLineDto>,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct JournalLineIn {
+    pub account_id: i64,
+    pub direction: String,
+    pub amount: String,
+    #[serde(default)]
+    pub vat_amount: String,
+    #[serde(default)]
+    pub currency: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct JournalIn {
+    pub entry_date: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub vat_type: String,
+    #[serde(default)]
+    pub counterpart_id: i64,
+    #[serde(default)]
+    pub counterpart_name: String,
+    #[serde(default)]
+    pub document_number: String,
+    #[serde(default)]
+    pub document_date: String,
+    #[serde(default)]
+    pub vat_period: String,
+    pub lines: Vec<JournalLineIn>,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct NextNumberDto {
+    pub number: String,
+    pub document_type: String,
+    pub direction: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PeriodDto {
+    pub year: i32,
+    pub month: i32,
+    #[serde(default = "default_open")]
+    pub status: String,
+}
+
+fn default_open() -> String {
+    "open".into()
+}

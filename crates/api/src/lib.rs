@@ -3,8 +3,11 @@
 
 pub mod errors;
 pub mod mappers;
+pub mod mappers_invoices;
+pub mod posting;
 pub mod routes;
 pub mod state;
+pub mod ubl;
 
 use axum::{
     middleware::from_fn_with_state,
@@ -104,6 +107,43 @@ pub fn router(st: AppState) -> Router {
             "/v1/document-series/{id}",
             axum::routing::patch(routes::related::series_update)
                 .delete(routes::related::series_delete),
+        )
+        // Фактури
+        .route(
+            "/v1/invoices",
+            get(routes::invoices::list).post(routes::invoices::create),
+        )
+        .route(
+            "/v1/invoices/next-number",
+            get(routes::invoices::next_number),
+        )
+        .route(
+            "/v1/invoices/{id}",
+            get(routes::invoices::show)
+                .patch(routes::invoices::update)
+                .delete(routes::invoices::delete),
+        )
+        .route("/v1/invoices/{id}/post", post(routes::invoices::post))
+        .route("/v1/invoices/{id}/unpost", post(routes::invoices::unpost))
+        .route("/v1/invoices/{id}/ubl", get(routes::invoices::ubl))
+        // Дневник
+        .route(
+            "/v1/journal",
+            get(routes::journal::list).post(routes::journal::create),
+        )
+        .route(
+            "/v1/journal/{id}",
+            get(routes::journal::show)
+                .put(routes::journal::update)
+                .patch(routes::journal::update)
+                .delete(routes::journal::delete),
+        )
+        // Периоди
+        .route("/v1/accounting-periods", get(routes::periods::index))
+        .route("/v1/accounting-periods/close", post(routes::periods::close))
+        .route(
+            "/v1/accounting-periods/reopen",
+            post(routes::periods::reopen),
         )
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 

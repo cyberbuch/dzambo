@@ -45,3 +45,10 @@ impl From<StorageError> for ApiError {
         Self::new(StatusCode::INTERNAL_SERVER_ERROR, "вътрешна грешка")
     }
 }
+
+impl From<diesel::result::Error> for ApiError {
+    fn from(e: diesel::result::Error) -> Self {
+        tracing::error!("заявка: {e}");
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "вътрешна грешка")
+    }
+}

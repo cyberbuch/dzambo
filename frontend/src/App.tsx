@@ -5,6 +5,7 @@ import AppShell from "@/components/AppShell";
 import AccountsPage from "@/features/accounts/AccountsPage";
 import CounterpartsPage from "@/features/counterparts/CounterpartsPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
+import InvoicesPage from "@/features/invoices/InvoicesPage";
 import LoginPage from "@/features/auth/LoginPage";
 import ProductsPage from "@/features/products/ProductsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="accounts" element={<AccountsPage />} />
             <Route path="counterparts" element={<CounterpartsPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

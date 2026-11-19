@@ -8,6 +8,7 @@ const links = [
   { to: "/accounts", label: "Сметкоплан", end: false },
   { to: "/counterparts", label: "Контрагенти", end: false },
   { to: "/products", label: "Стоки", end: false },
+  { to: "/invoices", label: "Фактури", end: false },
   { to: "/settings", label: "Настройки", end: false },
 ];
 

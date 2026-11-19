@@ -1,9 +1,11 @@
 //! Моделите на storage. Групирани по домейн; всеки файл под 800 реда.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 
 pub mod counterparts;
+pub mod invoices;
+pub mod journal;
 pub mod products;
 pub mod related;
 
@@ -173,22 +175,4 @@ pub struct NewAccount<'a> {
     pub name: &'a str,
     pub saft_account_type: &'a str,
     pub is_currency: bool,
-}
-
-#[derive(Queryable, Selectable, Debug, Clone)]
-#[diesel(table_name = crate::schema::invoices)]
-pub struct InvoiceSummary {
-    pub id: i64,
-    pub company_id: i64,
-    pub number: String,
-    pub issue_date: NaiveDate,
-    pub counterpart_id: i64,
-    pub counterpart_name: String,
-    pub currency: String,
-    pub net_amount: bigdecimal::BigDecimal,
-    pub vat_amount: bigdecimal::BigDecimal,
-    pub total_amount: bigdecimal::BigDecimal,
-    pub status: String,
-    pub direction: String,
-    pub created_at: DateTime<Utc>,
 }

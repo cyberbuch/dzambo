@@ -6,7 +6,7 @@ use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
 
 use crate::{
-    models::InvoiceSummary,
+    models::invoices::Invoice,
     schema::{bank_accounts, invoices},
     StorageError,
 };
@@ -23,7 +23,7 @@ pub struct DashboardNumbers {
     pub revenue_ytd: BigDecimal,
     pub expense_ytd: BigDecimal,
     pub bank_total: BigDecimal,
-    pub recent: Vec<InvoiceSummary>,
+    pub recent: Vec<crate::models::invoices::Invoice>,
 }
 
 pub async fn numbers(
@@ -33,8 +33,8 @@ pub async fn numbers(
     let rows = invoices::table
         .filter(invoices::company_id.eq(company_id))
         .order(invoices::id.desc())
-        .select(InvoiceSummary::as_select())
-        .load::<InvoiceSummary>(conn)
+        .select(crate::models::invoices::Invoice::as_select())
+        .load::<Invoice>(conn)
         .await?;
 
     let mut out = DashboardNumbers {

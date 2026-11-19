@@ -30,6 +30,13 @@ pub async fn run(pool: &DbPool) -> Result<(), StorageError> {
     ensure_demo(&mut conn).await?;
     ensure_admin_access(&mut conn).await?;
     ensure_demo_extras(&mut conn).await?;
+    if let Some((company, _)) = companies::list_all(&mut conn)
+        .await?
+        .into_iter()
+        .find(|(c, _)| c.name == "YT ООД")
+    {
+        seed_invoices(&mut conn, company.id).await?;
+    }
     Ok(())
 }
 
@@ -257,7 +264,6 @@ async fn ensure_demo(conn: &mut AsyncPgConnection) -> Result<(), StorageError> {
     .await?;
 
     fill_chart(conn, company.id).await?;
-    seed_invoices(conn, company.id).await?;
     tracing::info!("демо фирма YT ООД (id={}) засеяна", company.id);
     Ok(())
 }
@@ -287,16 +293,21 @@ pub async fn fill_chart(
 }
 
 async fn seed_invoices(conn: &mut AsyncPgConnection, company_id: i64) -> Result<(), StorageError> {
-    let rows = vec![
+    // Идемпотентно: ако вече има демо фактури за фирмата, не се дублира.
+    let existing = crate::invoices::list(conn, company_id).await?;
+    if existing.iter().any(|h| h.number == "0000000041") {
+        return Ok(());
+    }
+    let rows = [
         (
             "0000000041",
             NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(),
             "Демо Клиент ООД",
             "draft",
             "out",
-            "1000.0000",
-            "200.0000",
-            "1200.0000",
+            "1000",
+            "200",
+            "1200",
         ),
         (
             "0000000042",
@@ -304,9 +315,9 @@ async fn seed_invoices(conn: &mut AsyncPgConnection, company_id: i64) -> Result<
             "Доставчик Демо ООД",
             "posted",
             "in",
-            "250.0000",
-            "50.0000",
-            "300.0000",
+            "250",
+            "50",
+            "300",
         ),
     ];
     for (number, date, counterpart, status, direction, net, vat, total) in rows {
@@ -322,6 +333,8 @@ async fn seed_invoices(conn: &mut AsyncPgConnection, company_id: i64) -> Result<
         diesel::insert_into(invoices::table)
             .values((
                 invoices::company_id.eq(company_id),
+                invoices::direction.eq(direction),
+                invoices::document_type.eq("01"),
                 invoices::number.eq(number),
                 invoices::issue_date.eq(date),
                 invoices::counterpart_id.eq(2i64),
@@ -331,7 +344,7 @@ async fn seed_invoices(conn: &mut AsyncPgConnection, company_id: i64) -> Result<
                 invoices::vat_amount.eq(vat),
                 invoices::total_amount.eq(total),
                 invoices::status.eq(status),
-                invoices::direction.eq(direction),
+                invoices::accounting_month.eq("2026-10"),
             ))
             .execute(conn)
             .await?;
