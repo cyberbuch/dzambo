@@ -11,7 +11,7 @@ use crate::errors::ApiError;
 use crate::routes::common::active_company;
 use crate::state::{AppState, Session};
 use domain::reports_data::{self, Built};
-use domain::{reports_fs, reports_trial};
+use domain::{reports_book, reports_corr, reports_fs, reports_trial};
 use storage::{fsform, reports};
 
 fn bad(m: &str) -> ApiError {
@@ -43,7 +43,7 @@ pub async fn index(
         kind
     };
     if !reports_data::kind_ok(&kind) {
-        return Err(bad("непознат kind (trial_balance/counterpart_trial/balance_sheet/income_statement/cash_flow/equity)"));
+        return Err(bad("непознат kind"));
     }
     let from = q.from.unwrap_or_default().trim().to_string();
     let to = q.to.unwrap_or_default().trim().to_string();
@@ -60,7 +60,7 @@ pub async fn index(
         .trim()
         .parse()
         .unwrap_or(0);
-    let wants_cp = kind == "counterpart_trial";
+    let wants_cp = kind == "counterpart_trial" || kind == "counterpart_chrono";
     if wants_cp && cpid <= 0 {
         return Err(bad("counterpart_id е задължителен"));
     }
@@ -74,7 +74,12 @@ pub async fn index(
             rows.into_iter().map(|r| (r.line_code, r.formula)).collect();
         reports_fs::build(&kind, &books, &formulas)
     } else {
-        reports_trial::build(&kind, &books)
+        match kind.as_str() {
+            "chronological" | "counterpart_chrono" => reports_book::chrono(&kind, &books),
+            "general_ledger" => reports_book::ledger(&kind, &books),
+            "correspondence_ledger" => reports_corr::build(&kind, &books),
+            _ => reports_trial::build(&kind, &books),
+        }
     };
     let line = reports_data::firm_line(&books.firm_name, &books.firm_eik);
     if !line.is_empty() {

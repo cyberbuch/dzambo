@@ -162,6 +162,13 @@ pub fn numbers(b: &Books) -> HashMap<i64, String> {
         .collect()
 }
 
+pub fn names(b: &Books) -> HashMap<String, String> {
+    b.accounts
+        .iter()
+        .map(|a| (a.number.clone(), a.name.clone()))
+        .collect()
+}
+
 pub fn by_number(b: &Books, t: &Turn) -> [HashMap<String, i128>; 4] {
     let nums = numbers(b);
     let mut out = [
@@ -249,6 +256,10 @@ pub fn title(kind: &str) -> &'static str {
     match kind {
         "trial_balance" => "Оборотна ведомост",
         "counterpart_trial" => "Оборотна ведомост по контрагент",
+        "general_ledger" => "Главна книга",
+        "chronological" => "Хронологичен журнал",
+        "counterpart_chrono" => "Хронологичен журнал по контрагент",
+        "correspondence_ledger" => "Главна книга по кореспонденции",
         "balance_sheet" => "Счетоводен баланс",
         "income_statement" => "Отчет за приходите и разходите",
         "cash_flow" => "Отчет за паричните потоци",
@@ -261,6 +272,10 @@ pub fn slug(kind: &str) -> &'static str {
     match kind {
         "trial_balance" => "oborotna",
         "counterpart_trial" => "oborotna-kontragent",
+        "general_ledger" => "glavna-kniga",
+        "chronological" => "hronologichen",
+        "counterpart_chrono" => "hronologichen-kontragent",
+        "correspondence_ledger" => "glavna-kniga-korespondencii",
         "balance_sheet" => "balans",
         "income_statement" => "opr",
         "cash_flow" => "parichen-potok",
@@ -274,6 +289,10 @@ pub fn kind_ok(kind: &str) -> bool {
         kind,
         "trial_balance"
             | "counterpart_trial"
+            | "general_ledger"
+            | "chronological"
+            | "counterpart_chrono"
+            | "correspondence_ledger"
             | "balance_sheet"
             | "income_statement"
             | "cash_flow"
