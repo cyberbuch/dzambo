@@ -11,3 +11,4 @@ pub mod periods;
 pub mod products;
 pub mod related;
 pub mod settings;
+pub mod vat;

@@ -227,3 +227,22 @@ pub async fn sum_of(
 pub fn parse_date(raw: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok()
 }
+
+/// Постнати фактури за счетоводен месец (ДДС дневници).
+pub async fn list_posted_by_month(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    direction: &str,
+    month: &str,
+) -> Result<Vec<Invoice>, StorageError> {
+    invoices::table
+        .filter(invoices::company_id.eq(company_id))
+        .filter(invoices::direction.eq(direction))
+        .filter(invoices::status.eq("posted"))
+        .filter(invoices::accounting_month.eq(month))
+        .order(invoices::issue_date.asc())
+        .select(Invoice::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
+}

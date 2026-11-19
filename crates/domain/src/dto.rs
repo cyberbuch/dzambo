@@ -529,3 +529,15 @@ pub struct PeriodDto {
 fn default_open() -> String {
     "open".into()
 }
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct VatRowDto {
+    pub number: String,
+    pub issue_date: String,
+    pub counterpart_name: String,
+    pub eik: String,
+    pub net_amount: String,
+    pub vat_amount: String,
+    pub total_amount: String,
+}

@@ -9,6 +9,7 @@ import InvoicesPage from "@/features/invoices/InvoicesPage";
 import LoginPage from "@/features/auth/LoginPage";
 import ProductsPage from "@/features/products/ProductsPage";
 import SettingsPage from "@/features/settings/SettingsPage";
+import VatPage from "@/features/vat/VatPage";
 import { useSession } from "@/stores/session";
 
 function Guard() {
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="counterparts" element={<CounterpartsPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="vat" element={<VatPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Route>

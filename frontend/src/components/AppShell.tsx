@@ -10,6 +10,7 @@ const links = [
   { to: "/products", label: "Стоки", end: false },
   { to: "/invoices", label: "Фактури", end: false },
   { to: "/settings", label: "Настройки", end: false },
+  { to: "/vat", label: "ДДС", end: false },
 ];
 
 export default function AppShell() {

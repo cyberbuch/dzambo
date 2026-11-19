@@ -145,6 +145,10 @@ pub fn router(st: AppState) -> Router {
             "/v1/accounting-periods/reopen",
             post(routes::periods::reopen),
         )
+        // ДДС
+        .route("/v1/vat/sales", get(routes::vat::sales))
+        .route("/v1/vat/purchases", get(routes::vat::purchases))
+        .route("/v1/vat/file", get(routes::vat::file))
         .layer(from_fn_with_state(st.clone(), state::require_auth));
 
     Router::new().merge(public).merge(protected).with_state(st)
