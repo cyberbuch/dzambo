@@ -642,3 +642,15 @@ pub struct DepRowDto {
     pub expense_account: String,
     pub depreciation_account: String,
 }
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct StockItemDto {
+    pub product_id: i64,
+    pub name: String,
+    pub code: String,
+    pub unit: String,
+    pub quantity: String,
+    pub avg_unit_cost: String,
+    pub value: String,
+}

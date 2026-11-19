@@ -416,3 +416,18 @@ diesel::table! {
         location_id -> Int8,
     }
 }
+
+diesel::table! {
+    inventory_lots (id) {
+        id -> Int8,
+        company_id -> Int8,
+        product_id -> Int8,
+        invoice_id -> Int8,
+        invoice_line_id -> Int8,
+        received_date -> Date,
+        quantity -> Numeric,
+        remaining -> Numeric,
+        unit_cost -> Numeric,
+        location_id -> Int8,
+    }
+}

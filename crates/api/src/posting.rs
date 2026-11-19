@@ -226,6 +226,9 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
         };
         let entry_id = journal::insert_entry(tx, &entry, &new_lines).await?;
         invoices::set_status(tx, invoice_id, "posted", entry_id).await?;
+        if inv.direction == "in" {
+            storage::stock::lots_from_invoice(tx, inv.company_id, inv.id, &lines, inv.issue_date).await?;
+        }
         journal::entry_with_lines(tx, entry_id)
             .await?
             .ok_or_else(internal)
