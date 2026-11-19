@@ -1,6 +1,6 @@
 //! Банкови сметки и транзакции.
 
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, Zero};
 use chrono::NaiveDate;
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
@@ -99,4 +99,28 @@ pub async fn set_tx_status(conn: &mut AsyncPgConnection, id: i64, status: &str, 
 
 pub async fn account_by_id(conn: &mut AsyncPgConnection, id: i64) -> Result<Option<BankAccount>, StorageError> {
     bank_accounts::table.find(id).select(BankAccount::as_select()).first(conn).await.optional().map_err(StorageError::from)
+}
+
+/// Импорт на вече парснати транзакции (MT940/camt.053).
+pub async fn import_parsed(conn: &mut AsyncPgConnection, company_id: i64, account_id: i64, txs: &[crate::bank_formats::Tx]) -> Result<i64, StorageError> {
+    let mut n = 0i64;
+    for t in txs {
+        let Ok(date) = NaiveDate::parse_from_str(&t.date, "%Y-%m-%d") else { continue };
+        let amount: BigDecimal = t.amount.parse().unwrap_or_default();
+        if amount.is_zero() { continue; }
+        let direction = if amount < BigDecimal::default() { "out" } else { "in" };
+        diesel::insert_into(bank_transactions::table)
+            .values((
+                bank_transactions::company_id.eq(company_id),
+                bank_transactions::bank_account_id.eq(account_id),
+                bank_transactions::tx_date.eq(date),
+                bank_transactions::amount.eq(amount),
+                bank_transactions::direction.eq(direction),
+                bank_transactions::counterpart_name.eq(&t.contra_name),
+                bank_transactions::description.eq(&t.description),
+                bank_transactions::reference.eq(&t.reference),
+            )).execute(conn).await?;
+        n += 1;
+    }
+    Ok(n)
 }

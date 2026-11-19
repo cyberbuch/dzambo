@@ -40,8 +40,11 @@ pub struct ImportBody { pub account_id: i64, pub csv: String }
 pub async fn import(State(st): State<AppState>, Extension(s): Extension<Session>, Json(b): Json<ImportBody>) -> Result<Json<serde_json::Value>, ApiError> {
     let (_u, c) = active_company(&st, &s.claims.sub).await?;
     let mut conn = st.pool.get().await.map_err(|_| internal())?;
-    let n = storage::banks::import_csv(&mut conn, c.id, b.account_id, &b.csv).await?;
-    Ok(Json(serde_json::json!({"imported": n})))
+    let (n, format) = match storage::bank_formats::parse(&b.csv) {
+        Some(parsed) => (storage::banks::import_parsed(&mut conn, c.id, b.account_id, &parsed.txs).await?, parsed.format_name),
+        None => (storage::banks::import_csv(&mut conn, c.id, b.account_id, &b.csv).await?, "CSV".to_string()),
+    };
+    Ok(Json(serde_json::json!({"imported": n, "format": format})))
 }
 
 /// Разнасяне на транзакция в дневника: Дт/Кт банкова сметка (501) ↔ контрагент.
