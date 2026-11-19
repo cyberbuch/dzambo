@@ -1,8 +1,11 @@
-//! Модели. Файловете са разделени по домейн, за да не никнат под 800 реда.
-//! companies (25 колони) + company_details (1:1) —  limites на Diesel.
+//! Моделите на storage. Групирани по домейн; всеки файл под 800 реда.
 
 use chrono::{DateTime, NaiveDate, Utc};
 use diesel::prelude::*;
+
+pub mod counterparts;
+pub mod products;
+pub mod related;
 
 #[derive(Queryable, Selectable, Debug)]
 #[diesel(table_name = crate::schema::users)]
@@ -159,6 +162,7 @@ pub struct Account {
     pub name: String,
     pub saft_account_type: String,
     pub analytic_type: String,
+    pub is_currency: bool,
 }
 
 #[derive(Insertable)]
@@ -167,6 +171,8 @@ pub struct NewAccount<'a> {
     pub company_id: i64,
     pub number: &'a str,
     pub name: &'a str,
+    pub saft_account_type: &'a str,
+    pub is_currency: bool,
 }
 
 #[derive(Queryable, Selectable, Debug, Clone)]

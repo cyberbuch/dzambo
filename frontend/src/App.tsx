@@ -1,9 +1,20 @@
 import { useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 
+import AppShell from "@/components/AppShell";
+import AccountsPage from "@/features/accounts/AccountsPage";
+import CounterpartsPage from "@/features/counterparts/CounterpartsPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import LoginPage from "@/features/auth/LoginPage";
+import ProductsPage from "@/features/products/ProductsPage";
+import SettingsPage from "@/features/settings/SettingsPage";
 import { useSession } from "@/stores/session";
+
+function Guard() {
+  const token = useSession((s) => s.token);
+  if (!token) return <Navigate to="/login" replace />;
+  return <Outlet />;
+}
 
 export default function App() {
   const hydrated = useSession((s) => s.hydrated);
@@ -23,10 +34,15 @@ export default function App() {
           path="/login"
           element={token ? <Navigate to="/" replace /> : <LoginPage />}
         />
-        <Route
-          path="/"
-          element={token ? <DashboardPage /> : <Navigate to="/login" replace />}
-        />
+        <Route element={<Guard />}>
+          <Route element={<AppShell />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="accounts" element={<AccountsPage />} />
+            <Route path="counterparts" element={<CounterpartsPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

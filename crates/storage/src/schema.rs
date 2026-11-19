@@ -103,6 +103,7 @@ diesel::table! {
         name -> Text,
         saft_account_type -> Text,
         analytic_type -> Text,
+        is_currency -> Bool,
     }
 }
 
@@ -133,3 +134,123 @@ diesel::table! {
 }
 
 diesel::allow_tables_to_appear_in_same_query!(companies, company_details, user_companies);
+
+diesel::table! {
+    counterparts (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        counterpart_type -> Text,
+        eik -> Text,
+        vat_number -> Text,
+        address -> Text,
+        city -> Text,
+        post_code -> Text,
+        country -> Text,
+        contact_person -> Text,
+    }
+}
+
+diesel::table! {
+    counterpart_extra (id) {
+        id -> Int8,
+        vies_address -> Text,
+        street_name -> Text,
+        building_number -> Text,
+        address_building -> Text,
+        additional_address_detail -> Text,
+        address_type -> Text,
+        region -> Text,
+        email -> Text,
+        phone -> Text,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(counterparts, counterpart_extra);
+
+diesel::table! {
+    products (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        code -> Text,
+        description -> Text,
+        unit -> Text,
+        price -> Numeric,
+        cost_price -> Numeric,
+        vat_rate -> Numeric,
+        is_service -> Bool,
+        is_inventory -> Bool,
+        inventory_account_id -> Int8,
+        revenue_account_id -> Int8,
+        stock_quantity -> Numeric,
+        stock_value -> Numeric,
+        is_active -> Bool,
+    }
+}
+
+diesel::table! {
+    product_extra (id) {
+        id -> Int8,
+        product_type -> Text,
+        cn8_code -> Text,
+        cn8_name -> Text,
+        expense_account_id -> Int8,
+        auto_write_off -> Bool,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(products, product_extra);
+
+diesel::table! {
+    company_locations (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        location_type -> Text,
+        street_name -> Text,
+        building_number -> Text,
+        city -> Text,
+        post_code -> Text,
+        region -> Text,
+        country -> Text,
+        is_main -> Bool,
+    }
+}
+
+diesel::table! {
+    beneficial_owners (id) {
+        id -> Int8,
+        company_id -> Int8,
+        first_name_bg -> Text,
+        last_name_bg -> Text,
+        egn -> Text,
+        first_name_latin -> Text,
+        last_name_latin -> Text,
+        country -> Text,
+        ownership_percentage -> Text,
+    }
+}
+
+diesel::table! {
+    ultimate_parents (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name_bg -> Text,
+        uic -> Text,
+        name_latin -> Text,
+        country -> Text,
+    }
+}
+
+diesel::table! {
+    document_series (id) {
+        id -> Int8,
+        company_id -> Int8,
+        name -> Text,
+        document_types -> Text,
+        pad_width -> Int4,
+        start_number -> Int4,
+        next_number -> Text,
+    }
+}

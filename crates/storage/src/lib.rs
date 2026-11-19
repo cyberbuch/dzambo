@@ -1,9 +1,13 @@
 //! Diesel + diesel-async + PostgreSQL слой: pool, миграции, seed,
 //! и repo модули по домейн.
 
+pub mod accounts;
 pub mod companies;
+pub mod counterparts;
 pub mod dashboard;
 pub mod models;
+pub mod products;
+pub mod related;
 pub mod schema;
 pub mod seed;
 pub mod settings;

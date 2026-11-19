@@ -13,3 +13,4 @@ chrono = { workspace = true }
 tracing = { workspace = true }
 domain = { path = "../domain" }
 storage = { path = "../storage" }
+bigdecimal = "0.4"

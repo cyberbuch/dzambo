@@ -1,7 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -12,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { api } from "@/lib/api";
-import { useSession } from "@/stores/session";
 import type { CompanyDto } from "@/bindings/CompanyDto";
 import type { DashboardDto } from "@/bindings/DashboardDto";
 import type { MeDto } from "@/bindings/MeDto";
@@ -29,9 +26,6 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function DashboardPage() {
-  const logout = useSession((s) => s.logout);
-  const navigate = useNavigate();
-
   const me = useQuery({
     queryKey: ["me"],
     queryFn: () => api.get<MeDto>("/v1/me"),
@@ -47,11 +41,6 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: () => api.get<DashboardDto>("/v1/dashboard"),
   });
-
-  async function doLogout() {
-    await logout();
-    navigate("/login", { replace: true });
-  }
 
   if (me.isLoading || dash.isLoading) {
     return <div className="p-6">Зареждане…</div>;
@@ -70,16 +59,11 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Табло</h1>
-          <p className="text-sm text-muted-foreground">
-            {active} · {user.name}
-          </p>
-        </div>
-        <Button variant="outline" onClick={doLogout}>
-          Изход
-        </Button>
+      <header>
+        <h1 className="text-2xl font-semibold">Табло</h1>
+        <p className="text-sm text-muted-foreground">
+          {active} · {user.name}
+        </p>
       </header>
 
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">

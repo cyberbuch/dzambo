@@ -52,9 +52,8 @@ pub struct MeDto {
     pub companies: Vec<MembershipDto>,
 }
 
-#[derive(Serialize, TS)]
+#[derive(Serialize, TS, Clone)]
 #[ts(export)]
-#[allow(clippy::struct_excessive_bools)]
 pub struct CompanyDto {
     pub id: i64,
     pub name: String,
@@ -139,4 +138,244 @@ pub struct DashboardDto {
     pub expense_ytd: String,
     pub bank_total: String,
     pub recent: Vec<RecentInvoiceDto>,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct AccountDto {
+    #[serde(default)]
+    pub id: i64,
+    pub number: String,
+    pub name: String,
+    pub saft_account_type: String,
+    pub analytic_type: String,
+    #[serde(default)]
+    pub is_currency: bool,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CounterpartDto {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+    #[serde(default = "default_cp_type")]
+    pub counterpart_type: String,
+    #[serde(default)]
+    pub eik: String,
+    #[serde(default)]
+    pub vat_number: String,
+    #[serde(default)]
+    pub address: String,
+    #[serde(default)]
+    pub city: String,
+    #[serde(default)]
+    pub post_code: String,
+    #[serde(default = "default_country")]
+    pub country: String,
+    #[serde(default)]
+    pub contact_person: String,
+    #[serde(default)]
+    pub vies_address: String,
+    #[serde(default)]
+    pub street_name: String,
+    #[serde(default)]
+    pub building_number: String,
+    #[serde(default)]
+    pub address_building: String,
+    #[serde(default)]
+    pub additional_address_detail: String,
+    #[serde(default)]
+    pub address_type: String,
+    #[serde(default)]
+    pub region: String,
+    #[serde(default)]
+    pub email: String,
+    #[serde(default)]
+    pub phone: String,
+}
+
+fn default_cp_type() -> String {
+    "both".into()
+}
+
+fn default_country() -> String {
+    "BG".into()
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ProductDto {
+    #[serde(default)]
+    pub id: i64,
+    pub name: String,
+    #[serde(default)]
+    pub code: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "default_unit")]
+    pub unit: String,
+    #[serde(default)]
+    pub price: Option<String>,
+    #[serde(default)]
+    pub cost_price: Option<String>,
+    #[serde(default)]
+    pub vat_rate: Option<String>,
+    #[serde(default)]
+    pub is_service: bool,
+    #[serde(default)]
+    pub is_inventory: bool,
+    #[serde(default)]
+    pub inventory_account_id: i64,
+    #[serde(default)]
+    pub revenue_account_id: i64,
+    #[serde(default)]
+    pub stock_quantity: Option<String>,
+    #[serde(default)]
+    pub stock_value: Option<String>,
+    #[serde(default = "default_true")]
+    pub is_active: bool,
+    #[serde(default)]
+    pub product_type: String,
+    #[serde(default)]
+    pub cn8_code: String,
+    #[serde(default)]
+    pub cn8_name: String,
+    #[serde(default)]
+    pub expense_account_id: i64,
+    #[serde(default)]
+    pub auto_write_off: bool,
+}
+
+fn default_unit() -> String {
+    "C62".into()
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct LocationDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "default_location_type")]
+    pub location_type: String,
+    #[serde(default)]
+    pub street_name: String,
+    #[serde(default)]
+    pub building_number: String,
+    #[serde(default)]
+    pub city: String,
+    #[serde(default)]
+    pub post_code: String,
+    #[serde(default)]
+    pub region: String,
+    #[serde(default = "default_country")]
+    pub country: String,
+    #[serde(default)]
+    pub is_main: bool,
+}
+
+fn default_location_type() -> String {
+    "OFFICE".into()
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct OwnerDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub first_name_bg: String,
+    #[serde(default)]
+    pub last_name_bg: String,
+    #[serde(default)]
+    pub egn: String,
+    #[serde(default)]
+    pub first_name_latin: String,
+    #[serde(default)]
+    pub last_name_latin: String,
+    #[serde(default = "default_country")]
+    pub country: String,
+    #[serde(default)]
+    pub ownership_percentage: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct ParentDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub name_bg: String,
+    #[serde(default)]
+    pub uic: String,
+    #[serde(default)]
+    pub name_latin: String,
+    #[serde(default = "default_country")]
+    pub country: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct SeriesDto {
+    #[serde(default)]
+    pub id: i64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub document_types: String,
+    #[serde(default = "default_pad")]
+    pub pad_width: i32,
+    #[serde(default = "default_one")]
+    pub start_number: i32,
+    #[serde(default = "default_one_str")]
+    pub next_number: String,
+}
+
+fn default_pad() -> i32 {
+    8
+}
+
+fn default_one() -> i32 {
+    1
+}
+
+fn default_one_str() -> String {
+    "1".into()
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct CompanySettingsDto {
+    pub company: CompanyDto,
+    pub locations: Vec<LocationDto>,
+    pub beneficial_owners: Vec<OwnerDto>,
+    pub ultimate_parents: Vec<ParentDto>,
+    pub document_series: Vec<SeriesDto>,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct UnitDto {
+    pub code: String,
+    pub name: String,
+    pub name_en: String,
+    pub symbol: String,
+    pub category: String,
+    pub source: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct SeedSaftDto {
+    pub created: i64,
+    pub skipped: i64,
+    pub total: i64,
 }

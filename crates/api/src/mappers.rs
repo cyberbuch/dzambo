@@ -2,7 +2,10 @@
 
 use chrono::SecondsFormat;
 
-use domain::dto::{CompanyDto, DashboardDto, MeDto, MembershipDto, RecentInvoiceDto};
+use domain::dto::{
+    AccountDto, CompanyDto, CompanySettingsDto, CounterpartDto, DashboardDto, LocationDto, MeDto,
+    MembershipDto, OwnerDto, ParentDto, ProductDto, RecentInvoiceDto, SeriesDto,
+};
 use storage::{
     companies::Membership,
     dashboard::DashboardNumbers,
@@ -117,5 +120,138 @@ pub fn dashboard_dto(company_id: i64, n: DashboardNumbers) -> DashboardDto {
         expense_ytd: domain::dto::fmt_money(&n.expense_ytd),
         bank_total: domain::dto::fmt_money(&n.bank_total),
         recent: n.recent.iter().map(recent_dto).collect(),
+    }
+}
+
+pub fn account_dto(a: &storage::models::Account) -> AccountDto {
+    AccountDto {
+        id: a.id,
+        number: a.number.clone(),
+        name: a.name.clone(),
+        saft_account_type: a.saft_account_type.clone(),
+        analytic_type: a.analytic_type.clone(),
+        is_currency: a.is_currency,
+    }
+}
+
+pub fn counterpart_dto(row: &storage::counterparts::CounterpartRow) -> CounterpartDto {
+    let c = &row.0;
+    let e = &row.1;
+    CounterpartDto {
+        id: c.id,
+        name: c.name.clone(),
+        counterpart_type: c.counterpart_type.clone(),
+        eik: c.eik.clone(),
+        vat_number: c.vat_number.clone(),
+        address: c.address.clone(),
+        city: c.city.clone(),
+        post_code: c.post_code.clone(),
+        country: c.country.clone(),
+        contact_person: c.contact_person.clone(),
+        vies_address: e.vies_address.clone(),
+        street_name: e.street_name.clone(),
+        building_number: e.building_number.clone(),
+        address_building: e.address_building.clone(),
+        additional_address_detail: e.additional_address_detail.clone(),
+        address_type: e.address_type.clone(),
+        region: e.region.clone(),
+        email: e.email.clone(),
+        phone: e.phone.clone(),
+    }
+}
+
+fn money_opt(v: &bigdecimal::BigDecimal) -> Option<String> {
+    Some(domain::dto::fmt_money(v))
+}
+
+pub fn product_dto(row: &storage::products::ProductRow) -> ProductDto {
+    let p = &row.0;
+    let e = &row.1;
+    ProductDto {
+        id: p.id,
+        name: p.name.clone(),
+        code: p.code.clone(),
+        description: p.description.clone(),
+        unit: p.unit.clone(),
+        price: money_opt(&p.price),
+        cost_price: money_opt(&p.cost_price),
+        vat_rate: money_opt(&p.vat_rate),
+        is_service: p.is_service,
+        is_inventory: p.is_inventory,
+        inventory_account_id: p.inventory_account_id,
+        revenue_account_id: p.revenue_account_id,
+        stock_quantity: money_opt(&p.stock_quantity),
+        stock_value: money_opt(&p.stock_value),
+        is_active: p.is_active,
+        product_type: e.product_type.clone(),
+        cn8_code: e.cn8_code.clone(),
+        cn8_name: e.cn8_name.clone(),
+        expense_account_id: e.expense_account_id,
+        auto_write_off: e.auto_write_off,
+    }
+}
+
+pub fn location_dto(l: &storage::models::related::Location) -> LocationDto {
+    LocationDto {
+        id: l.id,
+        name: l.name.clone(),
+        location_type: l.location_type.clone(),
+        street_name: l.street_name.clone(),
+        building_number: l.building_number.clone(),
+        city: l.city.clone(),
+        post_code: l.post_code.clone(),
+        region: l.region.clone(),
+        country: l.country.clone(),
+        is_main: l.is_main,
+    }
+}
+
+pub fn owner_dto(o: &storage::models::related::BeneficialOwner) -> OwnerDto {
+    OwnerDto {
+        id: o.id,
+        first_name_bg: o.first_name_bg.clone(),
+        last_name_bg: o.last_name_bg.clone(),
+        egn: o.egn.clone(),
+        first_name_latin: o.first_name_latin.clone(),
+        last_name_latin: o.last_name_latin.clone(),
+        country: o.country.clone(),
+        ownership_percentage: o.ownership_percentage.clone(),
+    }
+}
+
+pub fn parent_dto(p: &storage::models::related::UltimateParent) -> ParentDto {
+    ParentDto {
+        id: p.id,
+        name_bg: p.name_bg.clone(),
+        uic: p.uic.clone(),
+        name_latin: p.name_latin.clone(),
+        country: p.country.clone(),
+    }
+}
+
+pub fn series_dto(s: &storage::models::related::DocumentSeries) -> SeriesDto {
+    SeriesDto {
+        id: s.id,
+        name: s.name.clone(),
+        document_types: s.document_types.clone(),
+        pad_width: s.pad_width,
+        start_number: s.start_number,
+        next_number: s.next_number.clone(),
+    }
+}
+
+pub fn settings_dto(
+    company: &CompanyDto,
+    locations: Vec<storage::models::related::Location>,
+    owners: Vec<storage::models::related::BeneficialOwner>,
+    parents: Vec<storage::models::related::UltimateParent>,
+    series: Vec<storage::models::related::DocumentSeries>,
+) -> CompanySettingsDto {
+    CompanySettingsDto {
+        company: company.clone(),
+        locations: locations.iter().map(location_dto).collect(),
+        beneficial_owners: owners.iter().map(owner_dto).collect(),
+        ultimate_parents: parents.iter().map(parent_dto).collect(),
+        document_series: series.iter().map(series_dto).collect(),
     }
 }

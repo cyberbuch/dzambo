@@ -9,7 +9,11 @@ use domain::{auth, noms};
 
 use crate::{
     companies,
-    models::{NewAccount, NewCompany, NewCompanyDetails, NewUser},
+    models::{
+        counterparts::{NewCounterpart, NewCounterpartExtra},
+        products::{NewProduct, NewProductExtra},
+        NewAccount, NewCompany, NewCompanyDetails, NewUser,
+    },
     schema::{accounts, invoices},
     users, DbPool, StorageError,
 };
@@ -25,7 +29,121 @@ pub async fn run(pool: &DbPool) -> Result<(), StorageError> {
     ensure_jwt_secret_row(&mut conn).await?;
     ensure_demo(&mut conn).await?;
     ensure_admin_access(&mut conn).await?;
+    ensure_demo_extras(&mut conn).await?;
     Ok(())
+}
+
+/// Демо контрагенти и стока — идемпотентно по име/код.
+async fn ensure_demo_extras(conn: &mut AsyncPgConnection) -> Result<(), StorageError> {
+    let Some((company, _)) = companies::list_all(conn)
+        .await?
+        .into_iter()
+        .find(|(c, _)| c.name == "YT ООД")
+    else {
+        return Ok(());
+    };
+    let cid = company.id;
+
+    let cps = crate::counterparts::list(conn, cid).await?;
+    if !cps.iter().any(|(c, _)| c.name == "Демо Клиент ООД") {
+        crate::counterparts::insert(
+            conn,
+            &NewCounterpart {
+                company_id: cid,
+                name: "Демо Клиент ООД",
+                counterpart_type: "customer",
+                eik: "123456789",
+                vat_number: "BG123456789",
+                address: "бул. Демо 1",
+                city: "София",
+                post_code: "1000",
+                country: "BG",
+                contact_person: "",
+            },
+            &empty_cp_extra(),
+        )
+        .await?;
+    }
+    if !cps.iter().any(|(c, _)| c.name == "Доставчик Демо ООД") {
+        crate::counterparts::insert(
+            conn,
+            &NewCounterpart {
+                company_id: cid,
+                name: "Доставчик Демо ООД",
+                counterpart_type: "supplier",
+                eik: "987654321",
+                vat_number: "BG987654321",
+                address: "ул. Демо 2",
+                city: "София",
+                post_code: "1000",
+                country: "BG",
+                contact_person: "",
+            },
+            &empty_cp_extra(),
+        )
+        .await?;
+    }
+
+    let products = crate::products::list(conn, cid).await?;
+    if !products.iter().any(|(p, _)| p.code == "1") {
+        let def = default_product_accounts(conn, cid).await;
+        crate::products::insert(
+            conn,
+            &NewProduct {
+                company_id: cid,
+                name: "Демо стока",
+                code: "1",
+                description: "",
+                unit: "C62",
+                price: "10".parse().unwrap(),
+                cost_price: "6".parse().unwrap(),
+                vat_rate: "20".parse().unwrap(),
+                is_service: false,
+                is_inventory: true,
+                inventory_account_id: def.0,
+                revenue_account_id: def.1,
+                is_active: true,
+            },
+            &NewProductExtra {
+                id: 0,
+                product_type: "30",
+                cn8_code: "",
+                cn8_name: "",
+                expense_account_id: def.2,
+                auto_write_off: false,
+            },
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+fn empty_cp_extra() -> NewCounterpartExtra<'static> {
+    NewCounterpartExtra {
+        id: 0,
+        vies_address: "",
+        street_name: "",
+        building_number: "",
+        address_building: "",
+        additional_address_detail: "",
+        address_type: "",
+        region: "",
+        email: "",
+        phone: "",
+    }
+}
+
+async fn default_product_accounts(conn: &mut AsyncPgConnection, cid: i64) -> (i64, i64, i64) {
+    let Ok(all) = crate::accounts::list(conn, cid).await else {
+        return (0, 0, 0);
+    };
+    let pick = |n: &str| {
+        all.iter()
+            .find(|a| a.number == n)
+            .map(|a| a.id)
+            .unwrap_or(0)
+    };
+    (pick("302"), pick("706"), pick("601"))
 }
 
 /// Членство на superadmin във всички фирми + активна фирма по подразбиране.
@@ -145,7 +263,10 @@ async fn ensure_demo(conn: &mut AsyncPgConnection) -> Result<(), StorageError> {
 }
 
 /// Сметкопланът НАП се досева само за липсващите номера.
-async fn fill_chart(conn: &mut AsyncPgConnection, company_id: i64) -> Result<i64, StorageError> {
+pub async fn fill_chart(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+) -> Result<i64, StorageError> {
     let mut created = 0i64;
     for (code, name) in noms::chart() {
         let affected = diesel::insert_into(accounts::table)
@@ -153,6 +274,8 @@ async fn fill_chart(conn: &mut AsyncPgConnection, company_id: i64) -> Result<i64
                 company_id,
                 number: code,
                 name,
+                saft_account_type: code,
+                is_currency: code.starts_with('4') || code.starts_with('5'),
             })
             .on_conflict((accounts::company_id, accounts::number))
             .do_nothing()
