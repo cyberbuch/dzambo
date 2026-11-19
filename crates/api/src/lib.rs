@@ -347,7 +347,7 @@ pub fn router(st: AppState) -> Router {
             "/v1/fixed-assets/depreciation/post",
             post(routes::fixed_assets::post_dep),
         )
-        .route("/v1/stock/report", get(routes::stock::report))
+        .route("/v1/stock/report", get(routes::stock_report::report))
         .route(
             "/v1/stock-documents",
             get(routes::stock_docs::list).post(routes::stock_docs::create),

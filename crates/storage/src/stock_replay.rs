@@ -42,6 +42,7 @@ struct Mov {
     kind: &'static str, // receipt | move | issue | sale
     to: i64,
     unit_cost: f64,
+    doc: String,
 }
 
 pub async fn rebuild(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<Value> {
@@ -200,7 +201,7 @@ fn consume(lots: &mut [Lot], location: i64, qty: f64, method: &str) -> f64 {
 async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<Vec<Mov>> {
     let mut movs = Vec::new();
     // Доставки и продажби от постнати фактури.
-    let invs: Vec<(i64, String, String, NaiveDate, i64)> = invoices::table
+    let invs: Vec<(i64, String, String, NaiveDate, i64, String)> = invoices::table
         .filter(invoices::company_id.eq(company_id))
         .filter(invoices::status.eq("posted"))
         .select((
@@ -209,10 +210,11 @@ async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<V
             invoices::document_type,
             invoices::issue_date,
             invoices::location_id,
+            invoices::number,
         ))
         .load(conn)
         .await?;
-    for (id, dir, dtype, date, loc) in invs {
+    for (id, dir, dtype, date, loc, number) in invs {
         if !matches!(dtype.as_str(), "01" | "11" | "02" | "03") {
             continue;
         }
@@ -240,11 +242,12 @@ async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<V
                 kind,
                 to: 0,
                 unit_cost: d(&price),
+                doc: number.clone(),
             });
         }
     }
     // Премествания от потвърдени протоколи.
-    let docs: Vec<(i64, NaiveDate, i64, i64)> = crate::schema::internal_docs::table
+    let docs: Vec<(i64, NaiveDate, i64, i64, String)> = crate::schema::internal_docs::table
         .filter(crate::schema::internal_docs::company_id.eq(company_id))
         .filter(crate::schema::internal_docs::status.eq("confirmed"))
         .select((
@@ -252,10 +255,11 @@ async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<V
             crate::schema::internal_docs::doc_date,
             crate::schema::internal_docs::from_location_id,
             crate::schema::internal_docs::to_location_id,
+            crate::schema::internal_docs::number,
         ))
         .load(conn)
         .await?;
-    for (id, date, from, to) in docs {
+    for (id, date, from, to, number) in docs {
         let lines: Vec<(i64, BigDecimal)> = crate::schema::internal_doc_lines::table
             .filter(crate::schema::internal_doc_lines::doc_id.eq(id))
             .filter(crate::schema::internal_doc_lines::line_kind.eq("product"))
@@ -276,21 +280,23 @@ async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<V
                 kind: "move",
                 to,
                 unit_cost: 0.0,
+                doc: number.clone(),
             });
         }
     }
     // Ръчни изписвания.
-    let issues: Vec<(i64, NaiveDate, i64)> = material_issues::table
+    let issues: Vec<(i64, NaiveDate, i64, String)> = material_issues::table
         .filter(material_issues::company_id.eq(company_id))
         .filter(material_issues::status.eq("confirmed"))
         .select((
             material_issues::id,
             material_issues::doc_date,
             material_issues::location_id,
+            material_issues::number,
         ))
         .load(conn)
         .await?;
-    for (id, date, loc) in issues {
+    for (id, date, loc, number) in issues {
         let lines: Vec<(i64, i64, BigDecimal)> = material_issue_lines::table
             .filter(material_issue_lines::doc_id.eq(id))
             .select((
@@ -311,6 +317,7 @@ async fn load_movs(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<V
                 kind: "issue",
                 to: 0,
                 unit_cost: 0.0,
+                doc: number.clone(),
             });
         }
     }
@@ -547,4 +554,178 @@ pub async fn writeoff(
     Ok(
         json!({"months": [month], "entries": entries, "amount": format!("{total:.2}"), "warnings": warnings}),
     )
+}
+
+// ---- Справка за склада (explain): приход/разход/наличност, без запис ----
+
+#[derive(Clone)]
+pub struct Flow {
+    pub date: String,
+    pub doc: String,
+    pub kind: String,
+    pub reason: String,
+    pub product_id: i64,
+    pub product_name: String,
+    pub location_id: i64,
+    pub quantity: String,
+    pub value: String,
+}
+
+#[derive(Clone)]
+pub struct Balance {
+    pub product_id: i64,
+    pub product_name: String,
+    pub location_id: i64,
+    pub quantity: String,
+    pub value: String,
+}
+
+pub struct Explain {
+    pub flows: Vec<Flow>,
+    pub balances: Vec<Balance>,
+    pub warnings: Vec<String>,
+}
+
+fn q4(v: f64) -> String {
+    format!("{v:.4}")
+}
+fn m2(v: f64) -> String {
+    format!("{v:.2}")
+}
+
+pub async fn explain(conn: &mut crate::DbConn, company_id: i64) -> StorageResult<Explain> {
+    let method: String = companies::table
+        .find(company_id)
+        .select(companies::inventory_valuation_method)
+        .first(conn)
+        .await
+        .unwrap_or_else(|_| "WAC".into());
+    let names: std::collections::HashMap<i64, String> = products::table
+        .filter(products::company_id.eq(company_id))
+        .select((products::id, products::name))
+        .load::<(i64, String)>(conn)
+        .await?
+        .into_iter()
+        .collect();
+    let pname = |pid: i64| names.get(&pid).cloned().unwrap_or_default();
+
+    let mut movs = load_movs(conn, company_id).await?;
+    movs.sort_by_key(|m| (m.date, m.rank, m.seq));
+    let mut lots: std::collections::HashMap<i64, Vec<Lot>> = Default::default();
+    let mut flows = Vec::new();
+    let mut warnings = Vec::new();
+
+    for m in &movs {
+        let entry = lots.entry(m.product).or_default();
+        let day = m.date.to_string();
+        match m.kind {
+            "receipt" => {
+                entry.push(Lot {
+                    location: m.location,
+                    qty: m.qty,
+                    cost: m.unit_cost,
+                });
+                flows.push(Flow {
+                    date: day,
+                    doc: m.doc.clone(),
+                    kind: "in".into(),
+                    reason: "Доставка".into(),
+                    product_id: m.product,
+                    product_name: pname(m.product),
+                    location_id: m.location,
+                    quantity: q4(m.qty),
+                    value: m2(m.qty * m.unit_cost),
+                });
+            }
+            "move" => {
+                let cost = consume(entry, m.location, m.qty, &method);
+                entry.push(Lot {
+                    location: m.to,
+                    qty: m.qty,
+                    cost,
+                });
+                flows.push(Flow {
+                    date: day.clone(),
+                    doc: m.doc.clone(),
+                    kind: "out".into(),
+                    reason: "Преместване".into(),
+                    product_id: m.product,
+                    product_name: pname(m.product),
+                    location_id: m.location,
+                    quantity: q4(m.qty),
+                    value: m2(cost),
+                });
+                flows.push(Flow {
+                    date: day,
+                    doc: m.doc.clone(),
+                    kind: "in".into(),
+                    reason: "Преместване".into(),
+                    product_id: m.product,
+                    product_name: pname(m.product),
+                    location_id: m.to,
+                    quantity: q4(m.qty),
+                    value: m2(cost),
+                });
+            }
+            "issue" | "sale" => {
+                let cost = consume(entry, m.location, m.qty, &method);
+                if cost <= 0.0 && m.qty > 0.0 {
+                    warnings.push(format!(
+                        "няма наличност за артикул {} на {}",
+                        m.product, m.date
+                    ));
+                }
+                flows.push(Flow {
+                    date: day,
+                    doc: m.doc.clone(),
+                    kind: "out".into(),
+                    reason: if m.kind == "issue" {
+                        "Изписване".into()
+                    } else {
+                        "Продажба".into()
+                    },
+                    product_id: m.product,
+                    product_name: pname(m.product),
+                    location_id: m.location,
+                    quantity: q4(m.qty),
+                    value: m2(cost),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    let mut balances = Vec::new();
+    let mut keys: Vec<(i64, i64)> = Vec::new();
+    let mut agg: std::collections::HashMap<(i64, i64), (f64, f64)> = Default::default();
+    for (product, ls) in &lots {
+        for l in ls {
+            if l.qty <= 0.0 {
+                continue;
+            }
+            let key = (*product, l.location);
+            if !agg.contains_key(&key) {
+                keys.push(key);
+            }
+            let e = agg.entry(key).or_insert((0.0, 0.0));
+            e.0 += l.qty;
+            e.1 += l.qty * l.cost;
+        }
+    }
+    keys.sort();
+    for (product, location) in keys {
+        let (qty, val) = agg[&(product, location)];
+        balances.push(Balance {
+            product_id: product,
+            product_name: pname(product),
+            location_id: location,
+            quantity: q4(qty),
+            value: m2(val),
+        });
+    }
+    Ok(Explain {
+        flows,
+        balances,
+        warnings,
+    })
 }

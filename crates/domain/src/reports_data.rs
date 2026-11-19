@@ -264,6 +264,7 @@ pub fn title(kind: &str) -> &'static str {
         "income_statement" => "Отчет за приходите и разходите",
         "cash_flow" => "Отчет за паричните потоци",
         "equity" => "Отчет за собствения капитал",
+        "stock" => "Склад",
         _ => "Справка",
     }
 }
@@ -280,6 +281,7 @@ pub fn slug(kind: &str) -> &'static str {
         "income_statement" => "opr",
         "cash_flow" => "parichen-potok",
         "equity" => "sobstven-kapital",
+        "stock" => "sklad",
         _ => "spravka",
     }
 }
@@ -297,6 +299,7 @@ pub fn kind_ok(kind: &str) -> bool {
             | "income_statement"
             | "cash_flow"
             | "equity"
+            | "stock"
     )
 }
 

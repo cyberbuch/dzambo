@@ -30,6 +30,7 @@ pub struct Rq {
     pub to: Option<String>,
     pub account: Option<String>,
     pub counterpart_id: Option<String>,
+    pub location_id: Option<String>,
     pub format: Option<String>,
     pub bg: Option<String>,
 }
@@ -52,6 +53,16 @@ async fn prepare(st: &AppState, sub: &str, q: &Rq) -> Result<Built, ApiError> {
     }
     if from > to {
         return Err(bad("from трябва да е преди to"));
+    }
+    if kind == "stock" {
+        let loc: i64 = q
+            .location_id
+            .clone()
+            .unwrap_or_default()
+            .trim()
+            .parse()
+            .unwrap_or(0);
+        return crate::routes::stock_report::sheet(st, company.id, &from, &to, loc).await;
     }
     let account = q.account.clone().unwrap_or_default().trim().to_string();
     let cpid: i64 = q

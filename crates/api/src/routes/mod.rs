@@ -28,6 +28,7 @@ pub mod settings;
 pub mod smap;
 pub mod stock;
 pub mod stock_docs;
+pub mod stock_report;
 pub mod stockops;
 pub mod system_settings;
 pub mod vat;
