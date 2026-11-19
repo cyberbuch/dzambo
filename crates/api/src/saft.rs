@@ -1026,8 +1026,12 @@ pub async fn export(
             "вътрешна грешка",
         )
     })?;
-    let xml = monthly_xml(&mut conn, company.id, year, month).await?;
-    let filename = format!("saft_{year:04}-{month:02}_monthly.xml");
+    let mode = q.get("mode").cloned().unwrap_or_else(|| "monthly".into());
+    let xml = match mode.as_str() {
+        "annual" => annual_xml(&mut conn, company.id, year).await?,
+        _ => monthly_xml(&mut conn, company.id, year, month).await?,
+    };
+    let filename = format!("saft_{year:04}-{month:02}_{mode}.xml");
     Ok((
         axum::http::StatusCode::OK,
         [
@@ -1043,4 +1047,148 @@ pub async fn export(
         xml,
     )
         .into_response())
+}
+
+// ---------- Годишен режим: ДМА ----------
+
+async fn annual_xml(conn: &mut storage::DbConn, company_id: i64, year: i32) -> Result<String, ApiError> {
+    let (company_row, _) = storage::companies::by_id(conn, company_id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("фирмата не е намерена"))?;
+    let c = &company_row;
+    let assets = storage::fixed_assets::list(conn, company_id).await?;
+
+    let mut x = String::new();
+    x.push_str("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+    x.push_str(&format!("<nsSAFT:AuditFile xmlns:nsSAFT=\"{NS}\">\n"));
+    x.push_str("\t<nsSAFT:Header>\n");
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileVersion", "007")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileCountry", "BG")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileRegion", "")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:AuditFileDateCreated", &today())));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:SoftwareCompanyName", "dzambo")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:SoftwareID", "dzambo")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:SoftwareVersion", env!("CARGO_PKG_VERSION"))));
+    x.push_str("\t\t<nsSAFT:Company>\n");
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:RegistrationNumber", c.eik.trim())));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:Name", &c.name)));
+    x.push_str("\t\t\t<nsSAFT:Address>\n");
+    for (tag, val) in [("StreetName", c.address.as_str()), ("Number", ""), ("AdditionalAddressDetail", ""), ("Building", ""), ("City", c.city.as_str()), ("PostalCode", c.post_code.as_str()), ("Region", ""), ("Country", "BG"), ("AddressType", "StreetAddress")] {
+        x.push_str(&format!("\t\t\t\t{}\n", t(&format!("nsSAFT:{tag}"), val)));
+    }
+    x.push_str("\t\t\t</nsSAFT:Address>\n");
+    x.push_str("\t\t\t<nsSAFT:Contact>\n");
+    x.push_str("\t\t\t\t<nsSAFT:ContactPerson>\n");
+    x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:Title", "")));
+    x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:FirstName", &c.mol)));
+    x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:LastName", &c.mol)));
+    x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:OtherTitles", "")));
+    x.push_str("\t\t\t\t</nsSAFT:ContactPerson>\n");
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Telephone", &c.phone)));
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:Email", &c.email)));
+    x.push_str("\t\t\t</nsSAFT:Contact>\n");
+    x.push_str("\t\t\t<nsSAFT:TaxRegistration>\n");
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:TaxRegistrationNumber", c.eik.trim())));
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:TaxType", "100010")));
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:TaxNumber", &c.vat_number)));
+    x.push_str("\t\t\t</nsSAFT:TaxRegistration>\n");
+    x.push_str("\t\t\t<nsSAFT:BankAccount>\n");
+    x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:IBANNumber", &c.iban)));
+    x.push_str("\t\t\t</nsSAFT:BankAccount>\n");
+    x.push_str("\t\t</nsSAFT:Company>\n");
+    let owners_a = storage::related::owners(conn, company_id).await?;
+    let parents_a = storage::related::parents(conn, company_id).await?;
+    x.push_str("\t\t<nsSAFT:Ownership>\n");
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:IsPartOfGroup", "1")));
+    let bo = owners_a.first();
+    let up = parents_a.first();
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:BeneficialOwnerNameCyrillicBG", &bo.map(|o| format!("{} {}", o.first_name_bg, o.last_name_bg)).unwrap_or_default())));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:BeneficialOwnerEGN", &bo.map(|o| o.egn.clone()).unwrap_or_default())));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:BeneficialOwnerNameLatinForeign", "")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:BeneficialCountryForeign", "BG")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:BeneficialCountryForeignCode", "BG")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:UltimateOwnerNameCyrillicBG", &up.map(|p| p.name_bg.clone()).unwrap_or_default())));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:UltimateOwnerUICBG", &up.map(|p| p.uic.clone()).unwrap_or_default())));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:UltimateOwnerNameCyrillicForeign", "")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:UltimateOwnerNameLatinForeign", "")));
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:CountryForeign", "BG")));
+    x.push_str("\t\t</nsSAFT:Ownership>\n");
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:DefaultCurrencyCode", &c.currency)));
+    x.push_str("\t\t<nsSAFT:SelectionCriteria>\n");
+    x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:TaxReportingJurisdiction", "NRA")));
+    x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:PeriodStart", "1")));
+    x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:PeriodStartYear", &year.to_string())));
+    x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:PeriodEnd", "12")));
+    x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:PeriodEndYear", &year.to_string())));
+    x.push_str("\t\t</nsSAFT:SelectionCriteria>\n");
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:HeaderComment", "A")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:TaxAccountingBasis", "A")));
+    x.push_str(&format!("\t\t{}\n", t("nsSAFT:TaxEntity", "Company")));
+    x.push_str("\t</nsSAFT:Header>\n");
+
+    x.push_str("\t<nsSAFT:MasterFilesAnnual><nsSAFT:Assets>\n");
+    for a in &assets {
+        x.push_str("\t\t<nsSAFT:Asset>\n");
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:AssetID", &a.id.to_string())));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:AccountID", "204")));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:Description", &a.name)));
+        x.push_str("\t\t\t<nsSAFT:AssetSupplier>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SupplierName", "Неизвестен")));
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:SupplierID", "")));
+        x.push_str("\t\t\t\t<nsSAFT:PostalAddress><nsSAFT:City>София</nsSAFT:City><nsSAFT:Country>BG</nsSAFT:Country></nsSAFT:PostalAddress>\n");
+        x.push_str("\t\t\t</nsSAFT:AssetSupplier>\n");
+        x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:DateOfAcquisition", &a.acquisition_date.to_string())));
+        let startup = a.put_into_service_date.unwrap_or(a.acquisition_date);
+        x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:StartUpDate", &startup.to_string())));
+        x.push_str("\t\t\t<nsSAFT:Valuations>\n");
+        let pct = if a.accounting_depreciation_rate > BigDecimal::zero() { format!("{}", a.accounting_depreciation_rate) } else { "25".into() };
+        let dep = &a.accumulated_depreciation;
+        for tag in ["ValuationSAP", "ValuationDAP"] {
+            x.push_str(&format!("\t\t\t<nsSAFT:{tag}>\n"));
+            x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:ValuationClass", "206")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AcquisitionAndProductionCostsBegin", &money(&a.cost))));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AcquisitionAndProductionCostsEnd", &money(&a.cost))));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:InvestmentSupport", "0.00")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AssetLifeYear", "4")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AssetAddition", "0.00")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:Transfers", "0.00")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AssetDisposal", "0.00")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BookValueBegin", &money(&a.cost))));
+            x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:DepreciationMethod", "Линеен")));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:DepreciationPercentage", &pct)));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:DepreciationForPeriod", &money(dep))));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AppreciationForPeriod", "0.00")));
+            x.push_str("\t\t\t\t<nsSAFT:ExtraordinaryDepreciationsForPeriod><nsSAFT:ExtraordinaryDepreciationForPeriod>\n");
+            x.push_str(&format!("\t\t\t\t\t{}\n", t("nsSAFT:ExtraordinaryDepreciationMethod", "")));
+            x.push_str(&format!("\t\t\t\t\t{}\n", tn("nsSAFT:ExtraordinaryDepreciationAmountForPeriod", "0.00")));
+            x.push_str("\t\t\t\t</nsSAFT:ExtraordinaryDepreciationForPeriod></nsSAFT:ExtraordinaryDepreciationsForPeriod>\n");
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AccumulatedDepreciation", &money(dep))));
+            x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BookValueEnd", &money(&(&a.cost - dep)))));
+            x.push_str(&format!("\t\t\t</nsSAFT:{tag}>\n"));
+        }
+        x.push_str("\t\t\t</nsSAFT:Valuations>\n");
+        x.push_str("\t\t</nsSAFT:Asset>\n");
+    }
+    x.push_str("\t</nsSAFT:Assets></nsSAFT:MasterFilesAnnual>\n");
+
+    x.push_str("\t<nsSAFT:SourceDocumentsAnnual><nsSAFT:AssetTransactions>\n");
+    x.push_str(&format!("\t\t{}\n", tn("nsSAFT:NumberOfAssetTransactions", &assets.len().to_string())));
+    for a in &assets {
+        x.push_str("\t\t<nsSAFT:AssetTransaction>\n");
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:AssetTransactionID", &a.id.to_string())));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:AssetID", &a.id.to_string())));
+        x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:AssetTransactionType", "10")));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:Description", "Придобиване")));
+        x.push_str(&format!("\t\t\t{}\n", tn("nsSAFT:AssetTransactionDate", &a.acquisition_date.to_string())));
+        x.push_str(&format!("\t\t\t{}\n", t("nsSAFT:TransactionID", &a.id.to_string())));
+        x.push_str("\t\t\t<nsSAFT:AssetTransactionValuations><nsSAFT:AssetTransactionValuation>\n");
+        x.push_str(&format!("\t\t\t\t{}\n", t("nsSAFT:AssetValuationType", "1")));
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:AcquisitionAndProductionCostsOnTransaction", &money(&a.cost))));
+        x.push_str(&format!("\t\t\t\t{}\n", tn("nsSAFT:BookValueOnTransaction", &money(&a.cost))));
+        x.push_str("\t\t\t</nsSAFT:AssetTransactionValuation></nsSAFT:AssetTransactionValuations>\n");
+        x.push_str("\t\t</nsSAFT:AssetTransaction>\n");
+    }
+    x.push_str("\t</nsSAFT:AssetTransactions></nsSAFT:SourceDocumentsAnnual>\n");
+    x.push_str("</nsSAFT:AuditFile>\n");
+    Ok(x)
 }
