@@ -1,5 +1,6 @@
 //! Дневник: статии и редове.
 
+use bigdecimal::BigDecimal;
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
 
@@ -97,4 +98,64 @@ pub async fn delete_by_document(
         .execute(conn)
         .await?;
     Ok(())
+}
+
+/// ДДС агрегация по статия за дневника: нето/ДДС/общо от редовете.
+pub struct VatAgg {
+    pub document_number: String,
+    pub entry_date: chrono::NaiveDate,
+    pub counterpart_id: i64,
+    pub counterpart_name: String,
+    pub net: BigDecimal,
+    pub vat: BigDecimal,
+    pub total: BigDecimal,
+}
+
+pub async fn vat_rows(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    vat_type: &str,
+    period: &str,
+) -> Result<Vec<VatAgg>, StorageError> {
+    let entries = journal_entries::table
+        .filter(journal_entries::company_id.eq(company_id))
+        .filter(journal_entries::vat_type.eq(vat_type))
+        .filter(journal_entries::vat_period.eq(period))
+        .order(journal_entries::entry_date.asc())
+        .select(JournalEntry::as_select())
+        .load::<JournalEntry>(conn)
+        .await?;
+    let mut out = Vec::new();
+    for e in entries {
+        let lines = journal_lines::table
+            .filter(journal_lines::entry_id.eq(e.id))
+            .select(JournalLine::as_select())
+            .load::<JournalLine>(conn)
+            .await?;
+        let is_vat = |n: &str| matches!(n, "4531" | "4532");
+        let mut net = BigDecimal::default();
+        let mut vat = BigDecimal::default();
+        let mut total = BigDecimal::default();
+        for l in lines {
+            match (vat_type, l.direction.as_str()) {
+                ("sales", "credit") if is_vat(&l.account_number) => vat += &l.amount,
+                ("sales", "credit") => net += &l.amount,
+                ("sales", "debit") => total += &l.amount,
+                ("purchase", "debit") if is_vat(&l.account_number) => vat += &l.amount,
+                ("purchase", "debit") => net += &l.amount,
+                ("purchase", "credit") => total += &l.amount,
+                _ => {}
+            }
+        }
+        out.push(VatAgg {
+            document_number: e.document_number,
+            entry_date: e.entry_date,
+            counterpart_id: e.counterpart_id,
+            counterpart_name: e.counterpart_name,
+            net,
+            vat,
+            total,
+        });
+    }
+    Ok(out)
 }

@@ -50,25 +50,21 @@ async fn rows(
     }
     let (_u, company) = active_company(st, &session.claims.sub).await?;
     let mut c = st.pool.get().await.map_err(|_| internal())?;
-    let eik = storage::counterparts::list(&mut c, company.id).await?;
+    let vat_type = if direction == "out" { "sales" } else { "purchase" };
+    let aggs = storage::journal::vat_rows(&mut c, company.id, vat_type, period).await?;
+    let cps = storage::counterparts::list(&mut c, company.id).await?;
     let map: std::collections::HashMap<i64, String> =
-        eik.iter().map(|(cp, _)| (cp.id, cp.eik.clone())).collect();
-    let list =
-        storage::invoices::list_posted_by_month(&mut c, company.id, direction, period).await?;
-    Ok(list
+        cps.iter().map(|(cp, _)| (cp.id, cp.eik.clone())).collect();
+    Ok(aggs
         .iter()
-        .map(|i| {
-            // Черно сторно (03/13/23): сумите се обръщат веднъж при четене.
-            let sign = if matches!(i.document_type.as_str(), "03" | "13" | "23") { -1 } else { 1 };
-            VatRowDto {
-                number: i.number.clone(),
-                issue_date: i.issue_date.to_string(),
-                counterpart_name: i.counterpart_name.clone(),
-                eik: map.get(&i.counterpart_id).cloned().unwrap_or_default(),
-                net_amount: format!("{:.2}", sign * &i.net_amount),
-                vat_amount: format!("{:.2}", sign * &i.vat_amount),
-                total_amount: format!("{:.2}", sign * &i.total_amount),
-            }
+        .map(|a| VatRowDto {
+            number: a.document_number.clone(),
+            issue_date: a.entry_date.to_string(),
+            counterpart_name: a.counterpart_name.clone(),
+            eik: map.get(&a.counterpart_id).cloned().unwrap_or_default(),
+            net_amount: format!("{:.2}", a.net),
+            vat_amount: format!("{:.2}", a.vat),
+            total_amount: format!("{:.2}", a.total),
         })
         .collect())
 }
