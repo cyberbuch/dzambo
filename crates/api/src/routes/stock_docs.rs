@@ -57,7 +57,7 @@ pub async fn create(State(st): State<AppState>, Extension(s): Extension<Session>
     if b.kind != "move" {
         for l in &b.lines {
             let qty: BigDecimal = l.quantity.trim().parse().unwrap_or_default();
-            costs.push(storage::stock::consume_fifo(&mut co, c.id, l.product_id, qty).await?);
+            costs.push(storage::stock::consume_fifo(&mut co, c.id, l.product_id, qty, c.inventory_valuation_method == "LIFO").await?);
         }
     }
 

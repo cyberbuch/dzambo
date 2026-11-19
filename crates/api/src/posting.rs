@@ -136,6 +136,10 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
     diesel::sql_query("BEGIN").execute(tx).await?;
     let result: Result<JournalRow, ApiError> = async {
         let accts = load_accounts(tx, inv.company_id).await?;
+        let lifo = storage::companies::by_id(tx, inv.company_id)
+            .await?
+            .map(|(c, _)| c.inventory_valuation_method == "LIFO")
+            .unwrap_or(false);
         let prods: Vec<ProdRow> = products::list(tx, inv.company_id).await?;
         let prod_map: HashMap<i64, &ProdRow> = prods.iter().map(|row| (row.0.id, row)).collect();
         let id_map: HashMap<i64, Acct> = accts.values().map(|a| (a.id, clone_acct(a))).collect();
@@ -191,6 +195,7 @@ pub async fn post_invoice(pool: &storage::DbPool, invoice_id: i64) -> Result<Jou
                         inv.company_id,
                         line.product_id,
                         line.quantity.clone(),
+                        lifo,
                     )
                     .await?;
                     if cogs.is_zero() {

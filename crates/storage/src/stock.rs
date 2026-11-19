@@ -162,26 +162,30 @@ pub async fn consume_fifo(
     company_id: i64,
     product_id: i64,
     qty: BigDecimal,
+    lifo: bool,
 ) -> Result<BigDecimal, StorageError> {
     let mut remaining = qty.clone();
     let mut cost = BigDecimal::default();
     if qty.is_zero() {
         return Ok(cost);
     }
-    let lots = inventory_lots::table
-        .filter(inventory_lots::company_id.eq(company_id))
-        .filter(inventory_lots::product_id.eq(product_id))
-        .order((
-            inventory_lots::received_date.asc(),
-            inventory_lots::id.asc(),
-        ))
-        .select((
-            inventory_lots::id,
-            inventory_lots::remaining,
-            inventory_lots::unit_cost,
-        ))
-        .load::<(i64, BigDecimal, BigDecimal)>(conn)
-        .await?;
+    let lots = if lifo {
+        inventory_lots::table
+            .filter(inventory_lots::company_id.eq(company_id))
+            .filter(inventory_lots::product_id.eq(product_id))
+            .order((inventory_lots::received_date.desc(), inventory_lots::id.desc()))
+            .select((inventory_lots::id, inventory_lots::remaining, inventory_lots::unit_cost))
+            .load::<(i64, BigDecimal, BigDecimal)>(conn)
+            .await?
+    } else {
+        inventory_lots::table
+            .filter(inventory_lots::company_id.eq(company_id))
+            .filter(inventory_lots::product_id.eq(product_id))
+            .order((inventory_lots::received_date.asc(), inventory_lots::id.asc()))
+            .select((inventory_lots::id, inventory_lots::remaining, inventory_lots::unit_cost))
+            .load::<(i64, BigDecimal, BigDecimal)>(conn)
+            .await?
+    };
     for (id, lot_remaining, unit_cost) in lots {
         if remaining.is_zero() {
             break;
