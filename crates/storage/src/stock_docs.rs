@@ -19,6 +19,7 @@ pub struct StockDoc {
     pub to_location_id: i64,
     pub status: String,
     pub notes: String,
+    pub client_key: Option<String>,
 }
 
 #[derive(Queryable, Selectable, Debug)]
@@ -42,14 +43,16 @@ pub async fn lines_of(conn: &mut AsyncPgConnection, doc_id: i64) -> Result<Vec<S
         .select(StockDocLine::as_select()).load(conn).await.map_err(StorageError::from)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_document(
     conn: &mut AsyncPgConnection, company_id: i64, doc_date: NaiveDate, kind: &str,
-    from_location_id: i64, to_location_id: i64, notes: &str,
+    from_location_id: i64, to_location_id: i64, notes: &str, client_key: &str,
 ) -> Result<i64, StorageError> {
     let id: i64 = diesel::insert_into(stock_documents::table)
         .values((stock_documents::company_id.eq(company_id), stock_documents::doc_date.eq(doc_date),
             stock_documents::kind.eq(kind), stock_documents::from_location_id.eq(from_location_id),
             stock_documents::to_location_id.eq(to_location_id), stock_documents::notes.eq(notes),
+            stock_documents::client_key.eq(client_key),
             stock_documents::number.eq(String::new())))
         .returning(stock_documents::id).get_result(conn).await?;
     diesel::update(stock_documents::table.find(id)).set(stock_documents::number.eq(format!("DOC-{id}"))).execute(conn).await?;
@@ -74,4 +77,16 @@ pub async fn move_lots(conn: &mut AsyncPgConnection, company_id: i64, product_id
         .bind::<diesel::sql_types::BigInt,_>(product_id)
         .execute(conn).await?;
     Ok(())
+}
+
+/// Идемпотентност: намира документ по клиентски ключ (повторен опит = същия резултат).
+pub async fn find_by_key(conn: &mut AsyncPgConnection, company_id: i64, client_key: &str) -> Result<Option<StockDoc>, StorageError> {
+    stock_documents::table
+        .filter(stock_documents::company_id.eq(company_id))
+        .filter(stock_documents::client_key.eq(client_key))
+        .select(StockDoc::as_select())
+        .first(conn)
+        .await
+        .optional()
+        .map_err(StorageError::from)
 }

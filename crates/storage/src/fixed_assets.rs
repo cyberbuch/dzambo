@@ -201,6 +201,12 @@ pub async fn post_depreciation(
     month: i32,
 ) -> Result<i64, StorageError> {
     let key0 = format!("{year:04}-{month:02}");
+    let existing: i64 = crate::schema::journal_entries::table
+        .filter(crate::schema::journal_entries::document_number.eq(format!("DEP-{key0}")))
+        .count().get_result(conn).await?;
+    if existing > 0 {
+        return Err(StorageError::Connection(format!("амортизация за {key0} вече е начислена")));
+    }
     if crate::periods::is_closed(conn, company_id, &key0).await? {
         return Err(StorageError::Connection(format!(
             "периодът {key0} е затворен"

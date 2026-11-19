@@ -1,0 +1,1 @@
+ALTER TABLE stock_documents ADD COLUMN IF NOT EXISTS client_key TEXT UNIQUE;

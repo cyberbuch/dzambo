@@ -32,6 +32,8 @@ pub struct LineIn { product_id: i64, quantity: String }
 
 #[derive(serde::Deserialize)]
 pub struct DocIn {
+    #[serde(default)]
+    pub client_key: String,
     pub doc_date: String,
     pub kind: String,
     #[serde(default)]
@@ -51,6 +53,12 @@ pub async fn create(State(st): State<AppState>, Extension(s): Extension<Session>
     let date = storage::invoices::parse_date(&b.doc_date).ok_or_else(|| ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "невалидна дата"))?;
     let (_u, c) = active_company(&st, &s.claims.sub).await?;
     let mut co = st.pool.get().await.map_err(|_| internal())?;
+    if !b.client_key.trim().is_empty() {
+        if let Some(d) = storage::stock_docs::find_by_key(&mut co, c.id, b.client_key.trim()).await? {
+            let lines = storage::stock_docs::lines_of(&mut co, d.id).await?;
+            return Ok((StatusCode::OK, Json(doc_dto(&d, &lines))));
+        }
+    }
 
     // FIFO себестойност по редовете (само за issue/writeoff).
     let mut costs: Vec<BigDecimal> = Vec::new();
@@ -61,7 +69,7 @@ pub async fn create(State(st): State<AppState>, Extension(s): Extension<Session>
         }
     }
 
-    let doc_id = storage::stock_docs::insert_document(&mut co, c.id, date, &b.kind, b.from_location_id, b.to_location_id, &b.notes).await?;
+    let doc_id = storage::stock_docs::insert_document(&mut co, c.id, date, &b.kind, b.from_location_id, b.to_location_id, &b.notes, &b.client_key).await?;
     for (i, l) in b.lines.iter().enumerate() {
         let qty: BigDecimal = l.quantity.trim().parse().unwrap_or_default();
         let cost = costs.get(i).cloned().unwrap_or_default();

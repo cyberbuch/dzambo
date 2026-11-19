@@ -443,6 +443,7 @@ diesel::table! {
         to_location_id -> Int8,
         status -> Text,
         notes -> Text,
+        client_key -> Nullable<Text>,
     }
 }
 

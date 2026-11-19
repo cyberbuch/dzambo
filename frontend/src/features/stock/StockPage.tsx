@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -26,6 +26,7 @@ export default function StockPage() {
   const [kind, setKind] = useState("issue");
   const [productId, setProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const clientKey = useRef("");
 
   const report = useQuery({
     queryKey: ["stock-report"],
@@ -46,9 +47,11 @@ export default function StockPage() {
         doc_date: new Date().toISOString().slice(0, 10),
         kind,
         notes: "",
+        client_key: (clientKey.current ||= crypto.randomUUID()),
         lines: [{ product_id: Number(productId), quantity }],
       }),
     onSuccess: () => {
+      clientKey.current = "";
       void qc.invalidateQueries({ queryKey: ["stock-report"] });
       void qc.invalidateQueries({ queryKey: ["stock-docs"] });
     },
