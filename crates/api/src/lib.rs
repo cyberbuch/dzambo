@@ -117,6 +117,7 @@ pub fn router(st: AppState) -> Router {
             "/v1/invoices/next-number",
             get(routes::invoices::next_number),
         )
+        .route("/v1/invoices/bulk", post(routes::invoices::bulk))
         .route(
             "/v1/invoices/{id}",
             get(routes::invoices::show)

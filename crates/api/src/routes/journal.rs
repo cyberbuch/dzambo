@@ -116,7 +116,11 @@ fn prepare(
             .iter()
             .find(|a| a.id == l.account_id)
             .ok_or_else(|| ApiError::not_found("сметката не е намерена"))?;
-        let amount = parse_amount(&l.amount);
+        // количество × курс, ако са дадени; иначе сумата се взема както е.
+        let amount = match (l.fx_quantity.as_deref(), l.fx_rate.as_deref()) {
+            (Some(q), Some(r)) => q.trim().parse::<BigDecimal>().unwrap_or_default() * r.trim().parse::<BigDecimal>().unwrap_or_default(),
+            _ => parse_amount(&l.amount),
+        };
         match l.direction.as_str() {
             "debit" => debit += &amount,
             "credit" => credit += &amount,
@@ -127,6 +131,8 @@ fn prepare(
                 ))
             }
         }
+        let fx_quantity = l.fx_quantity.as_deref().and_then(|q| q.trim().parse::<BigDecimal>().ok()).unwrap_or_else(|| amount.clone());
+        let fx_rate = l.fx_rate.as_deref().and_then(|r| r.trim().parse::<BigDecimal>().ok()).unwrap_or_else(|| BigDecimal::from(1));
         lines.push(NewJournalLine {
             entry_id: 0,
             account_id: acct.id,
@@ -136,8 +142,8 @@ fn prepare(
             amount,
             vat_amount: parse_amount(&l.vat_amount),
             currency: l.currency.clone(),
-            fx_quantity: BigDecimal::default(),
-            fx_rate: BigDecimal::from(1),
+            fx_quantity,
+            fx_rate,
         });
     }
     if debit != credit {

@@ -312,3 +312,53 @@ pub async fn ubl(
     )
         .into_response())
 }
+
+#[derive(serde::Deserialize)]
+pub struct BulkBody {
+    pub ids: Vec<i64>,
+}
+
+fn bulk_result(id: i64, ok: bool, error: Option<String>) -> serde_json::Value {
+    serde_json::json!({"id": id, "ok": ok, "error": error})
+}
+
+/// POST /v1/invoices/bulk {action: post|unpost|delete, ids:[...]} — до 500 документа.
+pub async fn bulk(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Json(b): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    #[derive(serde::Deserialize)]
+    struct In {
+        action: String,
+        ids: Vec<i64>,
+    }
+    let parsed: In = serde_json::from_value(b)
+        .map_err(|_| ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "невалидно тяло"))?;
+    if parsed.ids.is_empty() || parsed.ids.len() > 500 {
+        return Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "до 500 документа"));
+    }
+    let (_u, _company) = active_company(&st, &session.claims.sub).await?;
+    let mut results = Vec::new();
+    for id in parsed.ids {
+        let r = match parsed.action.as_str() {
+            "post" => posting::post_invoice(&st.pool, id).await.map(|_| (true, None)),
+            "unpost" => posting::unpost_invoice(&st.pool, id).await.map(|_| (true, None)),
+            "delete" => {
+                let mut c = st.pool.get().await.map_err(|_| internal())?;
+                let _ = storage::journal::delete_by_document(&mut c, id).await;
+                match storage::invoices::delete(&mut c, id).await {
+                    Ok(_) => Ok((true, None)),
+                    Err(e) => Ok((false, Some(e.to_string()))),
+                }
+            }
+            _ => Err(ApiError::new(StatusCode::UNPROCESSABLE_ENTITY, "action е post, unpost или delete")),
+        };
+        match r {
+            Ok((ok, err)) => results.push(bulk_result(id, ok, err)),
+            Err(e) => results.push(bulk_result(id, false, Some(e.detail))),
+        }
+    }
+    let posted = results.iter().filter(|r| r["ok"] == true).count();
+    Ok(Json(serde_json::json!({ "processed": results.len(), "posted": posted, "results": results })))
+}

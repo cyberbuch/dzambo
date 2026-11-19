@@ -486,6 +486,10 @@ pub struct JournalLineIn {
     pub vat_amount: String,
     #[serde(default)]
     pub currency: String,
+    #[serde(default)]
+    pub fx_quantity: Option<String>,
+    #[serde(default)]
+    pub fx_rate: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, TS)]
