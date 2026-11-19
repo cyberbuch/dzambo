@@ -142,6 +142,7 @@ pub fn router(st: AppState) -> Router {
             get(routes::stockops::list_locations).post(routes::stockops::create_location),
         )
         .route("/v1/fs/lines", get(routes::fsform::lines))
+        .route("/v1/reports", get(routes::reports::index))
         .route(
             "/v1/fs/formulas",
             get(routes::fsform::index).put(routes::fsform::put),

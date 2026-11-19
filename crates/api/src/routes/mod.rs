@@ -23,6 +23,7 @@ pub mod periods;
 pub mod products;
 pub mod rates;
 pub mod related;
+pub mod reports;
 pub mod settings;
 pub mod smap;
 pub mod stock;

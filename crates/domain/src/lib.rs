@@ -6,6 +6,9 @@ pub mod dto;
 pub mod fsform;
 pub mod fsnom;
 pub mod noms;
+pub mod reports_data;
+pub mod reports_fs;
+pub mod reports_trial;
 pub mod smap_def;
 
 #[cfg(test)]

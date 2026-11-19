@@ -24,6 +24,7 @@ pub mod periods;
 pub mod products;
 pub mod rates;
 pub mod related;
+pub mod reports;
 pub mod schema;
 pub mod seed;
 pub mod settings;

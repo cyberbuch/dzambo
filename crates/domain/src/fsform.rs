@@ -1,26 +1,24 @@
-//! Валидация на формули за финансови отчети (само синтаксисът; броят токени).
-//! Порт на ytbuch reports_fs::check — без изчислението на сумите.
+//! Валидация и разбор на формули за финансови отчети.
+//! Порт на ytbuch reports_fs::check/parse — изчислението е в reports_fs.
 
 #[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-enum Piece {
+pub(crate) enum Piece {
     At(String),
     Acct { pat: String, which: String },
     Corr { debit: String, credit: String },
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[allow(dead_code)]
-struct Tok {
-    neg: bool,
-    piece: Piece,
+pub(crate) struct Tok {
+    pub neg: bool,
+    pub piece: Piece,
 }
 
 pub fn check(raw: &str) -> Result<usize, String> {
     parse(raw).map(|t| t.len())
 }
 
-fn parse(raw: &str) -> Result<Vec<Tok>, String> {
+pub(crate) fn parse(raw: &str) -> Result<Vec<Tok>, String> {
     let chars: Vec<char> = raw.trim().chars().collect();
     if chars.is_empty() {
         return Ok(Vec::new());
