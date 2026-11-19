@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "dzambo",
+  "version": "0.1.0",
+  "identifier": "cf.dzambo.app",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "dzambo",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8095"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["icons/icon.png"],
+    "targets": "all"
+  }
+}

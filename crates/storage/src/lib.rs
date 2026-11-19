@@ -1,0 +1,55 @@
+//! Diesel + diesel-async + PostgreSQL слой.
+//! Фаза 0: pool, миграции и сонда на типовете (NUMERIC/TIMESTAMPTZ).
+
+pub mod models;
+pub mod schema;
+
+use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
+use diesel_async::pooled_connection::deadpool::{Object, Pool};
+use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+use diesel_async::{AsyncConnection, AsyncPgConnection};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+
+/// Адресът на dev базата: postgres://dzambo:dzambo@127.0.0.1:5434/dzambo
+pub const DEFAULT_URL: &str = "postgres://dzambo:dzambo@127.0.0.1:5434/dzambo";
+
+pub type DbConn = Object<AsyncPgConnection>;
+pub type DbPool = Pool<AsyncPgConnection>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum StorageError {
+    #[error("pool: {0}")]
+    Pool(#[from] diesel_async::pooled_connection::deadpool::BuildError),
+    #[error("връзка: {0}")]
+    Connection(String),
+    #[error("заявка: {0}")]
+    Query(#[from] diesel::result::Error),
+    #[error("миграции: {0}")]
+    Migration(String),
+}
+
+pub async fn connect(url: &str) -> Result<DbPool, StorageError> {
+    let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(url);
+    let pool = Pool::builder(manager).build()?;
+    Ok(pool)
+}
+
+/// Миграциите се пускат през sync wrapper в spawn_blocking — diesel_migrations
+/// е синхронен, а обвивката я прави Send. Връзката се отваря директно, за да
+/// не се дърпа конекция от pool-а.
+pub async fn run_migrations(url: &str) -> Result<(), StorageError> {
+    let conn = AsyncPgConnection::establish(url)
+        .await
+        .map_err(|e| StorageError::Migration(e.to_string()))?;
+    let mut wrapper = AsyncConnectionWrapper::<AsyncPgConnection>::from(conn);
+    tokio::task::spawn_blocking(move || {
+        wrapper
+            .run_pending_migrations(MIGRATIONS)
+            .map(|_| ())
+            .map_err(|e| StorageError::Migration(e.to_string()))
+    })
+    .await
+    .map_err(|e| StorageError::Migration(e.to_string()))?
+}
