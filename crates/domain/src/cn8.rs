@@ -755,7 +755,10 @@ mod tests {
 
     #[test]
     fn unit_and_type_heuristics() {
-        assert_eq!(guess_saft_unit("Портланд цимент 25 кг", false, "C62"), "KGM");
+        assert_eq!(
+            guess_saft_unit("Портланд цимент 25 кг", false, "C62"),
+            "KGM"
+        );
         assert_eq!(guess_product_type("цимент", false, ""), "10");
         assert!(guess_is_service("счетоводно обслужване", false));
         assert!(known_unit("H87"));

@@ -29,6 +29,7 @@ pub mod profile_totp;
 pub mod rates;
 pub mod related;
 pub mod reports;
+pub mod scan;
 pub mod settings;
 pub mod smap;
 pub mod stock;

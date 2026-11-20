@@ -218,6 +218,8 @@ pub fn router(st: AppState) -> Router {
             get(routes::pnmap::index).post(routes::pnmap::save),
         )
         .route("/v1/products/cn8-suggest", post(routes::cn8::suggest))
+        .route("/v1/scans/extract", post(routes::scan::extract))
+        .route("/v1/scans/ubl", post(routes::scan::ubl))
         .route(
             "/v1/products/{id}",
             get(routes::products::show)
