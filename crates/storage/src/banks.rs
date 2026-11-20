@@ -83,10 +83,13 @@ pub async fn transactions(
     company_id: i64,
     account_id: i64,
 ) -> Result<Vec<BankTransaction>, StorageError> {
-    bank_transactions::table
+    let mut q = bank_transactions::table
         .filter(bank_transactions::company_id.eq(company_id))
-        .filter(bank_transactions::bank_account_id.eq(account_id))
-        .order(bank_transactions::tx_date.desc())
+        .into_boxed();
+    if account_id > 0 {
+        q = q.filter(bank_transactions::bank_account_id.eq(account_id));
+    }
+    q.order(bank_transactions::tx_date.desc())
         .select(BankTransaction::as_select())
         .load(conn)
         .await

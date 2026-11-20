@@ -64,7 +64,9 @@ pub async fn create_account(
 
 #[derive(serde::Deserialize)]
 pub struct TxQuery {
-    pub account_id: i64,
+    pub bank_account_id: Option<i64>,
+    pub account_id: Option<i64>,
+    pub status: Option<String>,
 }
 
 pub async fn transactions(
@@ -74,9 +76,11 @@ pub async fn transactions(
 ) -> Result<Json<Vec<BankTransactionDto>>, ApiError> {
     let (_u, c) = active_company(&st, &s.claims.sub).await?;
     let mut conn = st.pool.get().await.map_err(|_| internal())?;
-    let rows = storage::banks::transactions(&mut conn, c.id, q.account_id).await?;
+    let account_id = q.bank_account_id.or(q.account_id).unwrap_or(0);
+    let rows = storage::banks::transactions(&mut conn, c.id, account_id).await?;
     Ok(Json(
         rows.iter()
+            .filter(|t| q.status.as_deref().map(|st| t.status == st).unwrap_or(true))
             .map(|t| BankTransactionDto {
                 id: t.id,
                 tx_date: t.tx_date.to_string(),
