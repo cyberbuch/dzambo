@@ -250,3 +250,179 @@ pub async fn bulk_delete(
         serde_json::json!({"deleted": deleted, "failed": failed}),
     ))
 }
+
+// ---- Import preview + auto-allocate (matching по правила) ----
+
+#[derive(serde::Deserialize)]
+pub struct PreviewBody {
+    pub bank_account_id: i64,
+    pub file_content: String,
+}
+
+pub async fn preview(
+    State(st): State<AppState>,
+    Extension(s): Extension<Session>,
+    Json(b): Json<PreviewBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (_u, c) = active_company(&st, &s.claims.sub).await?;
+    let mut conn = st.pool.get().await.map_err(|_| internal())?;
+    if storage::banks::account_by_id(&mut conn, b.bank_account_id)
+        .await?
+        .map(|a| a.company_id != c.id)
+        .unwrap_or(true)
+    {
+        return Err(ApiError::not_found("сметката не е намерена"));
+    }
+    let parsed = storage::bank_formats::parse(&b.file_content);
+    let (format_name, account_iban, account_currency, txs) = match parsed {
+        Some(p) => (p.format_name, p.account_iban, p.account_currency, p.txs),
+        None => {
+            let mut txs = Vec::new();
+            for line in b.file_content.lines() {
+                let cols: Vec<&str> = line
+                    .split(';')
+                    .map(|x| x.trim().trim_matches('"'))
+                    .collect();
+                if cols.len() < 2 {
+                    continue;
+                }
+                txs.push(storage::bank_formats::Tx {
+                    date: cols[0].to_string(),
+                    amount: cols[1].replace(',', "."),
+                    currency: String::new(),
+                    description: cols.get(4).copied().unwrap_or("").to_string(),
+                    contra_name: cols.get(3).copied().unwrap_or("").to_string(),
+                    contra_iban: String::new(),
+                    reference: cols.get(5).copied().unwrap_or("").to_string(),
+                });
+            }
+            ("CSV".to_string(), String::new(), String::new(), txs)
+        }
+    };
+    let refs = storage::banks::refs_for_account(&mut conn, b.bank_account_id).await?;
+    let mut dup = 0;
+    let transactions: Vec<serde_json::Value> = txs.iter().map(|t| {
+        let is_duplicate = !t.reference.is_empty() && refs.iter().any(|r| r == &t.reference);
+        if is_duplicate { dup += 1; }
+        serde_json::json!({
+            "date": t.date, "amount": t.amount, "currency": t.currency,
+            "description": t.description, "contra_name": t.contra_name,
+            "contra_iban": t.contra_iban, "reference": t.reference, "is_duplicate": is_duplicate,
+        })
+    }).collect();
+    let total = transactions.len();
+    Ok(Json(serde_json::json!({
+        "format_name": format_name, "account_iban": account_iban, "account_currency": account_currency,
+        "transactions": transactions, "total_count": total, "duplicate_count": dup, "new_count": total - dup,
+    })))
+}
+
+async fn allocate(
+    st: &AppState,
+    company_id: i64,
+    apply: bool,
+) -> Result<serde_json::Value, ApiError> {
+    let mut conn = st.pool.get().await.map_err(|_| internal())?;
+    let rules = storage::bank_rules::list(&mut conn, company_id).await?;
+    let accs = accounts::list(&mut conn, company_id).await?;
+    let acc_label = |id: i64| {
+        accs.iter()
+            .find(|a| a.id == id)
+            .map(|a| format!("{} {}", a.number, a.name))
+            .unwrap_or_else(|| format!("#{id}"))
+    };
+    let acc_number = |id: i64| accs.iter().find(|a| a.id == id).map(|a| a.number.clone());
+    let cps = storage::counterparts::list(&mut conn, company_id).await?;
+    let txs = storage::banks::list_unallocated(&mut conn, company_id).await?;
+    let (mut matched, mut unmatched, mut errors, mut counterpart_hits) = (0, 0, 0, 0);
+    let mut details = Vec::new();
+    for tx in &txs {
+        let text = format!(
+            "{} {} {}",
+            tx.description, tx.counterpart_name, tx.reference
+        );
+        let amount = format!("{}", tx.amount);
+        let Some(rule) = storage::bank_rules::find_rule(&rules, &text, &amount) else {
+            unmatched += 1;
+            if details.len() < 50 {
+                details.push(serde_json::json!({"id": tx.id, "status": "unmatched", "text": text.chars().take(80).collect::<String>()}));
+            }
+            continue;
+        };
+        let cp_id = if rule.counterpart_id > 0 {
+            rule.counterpart_id
+        } else {
+            cps.iter()
+                .find(|cp| cp.0.name.eq_ignore_ascii_case(&tx.counterpart_name))
+                .map(|cp| cp.0.id)
+                .unwrap_or(0)
+        };
+        if cp_id > 0 {
+            counterpart_hits += 1;
+        }
+        let cp_name = cps
+            .iter()
+            .find(|cp| cp.0.id == cp_id)
+            .map(|cp| cp.0.name.clone())
+            .unwrap_or_default();
+        if !apply {
+            matched += 1;
+            if details.len() < 50 {
+                details.push(serde_json::json!({"id": tx.id, "status": "matched", "rule": rule.name, "account": acc_label(rule.account_id), "counterpart": cp_name, "amount": amount, "text": text.chars().take(80).collect::<String>()}));
+            }
+            continue;
+        }
+        let cp_number = acc_number(rule.account_id).unwrap_or_else(|| {
+            if tx.direction == "in" {
+                "411".into()
+            } else {
+                "401".into()
+            }
+        });
+        // Вече постната транзакция не се осчетоводява повторно — само се маркира.
+        let book = if tx.status == "posted" {
+            Ok(())
+        } else {
+            post_with_account(&mut conn, company_id, tx, &cp_number)
+                .await
+                .map(|_| ())
+        };
+        match book {
+            Ok(_) => {
+                let _ =
+                    storage::banks::mark_allocated(&mut conn, tx.id, rule.account_id, cp_id).await;
+                matched += 1;
+                if details.len() < 50 {
+                    details.push(serde_json::json!({"id": tx.id, "status": "matched", "rule": rule.name, "account": acc_label(rule.account_id)}));
+                }
+            }
+            Err(e) => {
+                errors += 1;
+                if details.len() < 50 {
+                    details.push(
+                        serde_json::json!({"id": tx.id, "status": "error", "error": e.detail}),
+                    );
+                }
+            }
+        }
+    }
+    Ok(
+        serde_json::json!({"matched": matched, "unmatched": unmatched, "errors": errors, "counterpart_hits": counterpart_hits, "details": details}),
+    )
+}
+
+pub async fn auto_allocate(
+    State(st): State<AppState>,
+    Extension(s): Extension<Session>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (_u, c) = active_company(&st, &s.claims.sub).await?;
+    Ok(Json(allocate(&st, c.id, true).await?))
+}
+
+pub async fn auto_allocate_preview(
+    State(st): State<AppState>,
+    Extension(s): Extension<Session>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (_u, c) = active_company(&st, &s.claims.sub).await?;
+    Ok(Json(allocate(&st, c.id, false).await?))
+}

@@ -332,6 +332,18 @@ pub fn router(st: AppState) -> Router {
         )
         .route("/v1/bank-transactions", get(routes::banks::transactions))
         .route("/v1/bank-transactions/import", post(routes::banks::import))
+        .route(
+            "/v1/bank-transactions/preview",
+            post(routes::banks::preview),
+        )
+        .route(
+            "/v1/bank-transactions/auto-allocate",
+            post(routes::banks::auto_allocate),
+        )
+        .route(
+            "/v1/bank-transactions/auto-allocate/preview",
+            post(routes::banks::auto_allocate_preview),
+        )
         .route("/v1/bank-transactions/{id}/post", post(routes::banks::post))
         .route(
             "/v1/bank-transactions/bulk/delete",

@@ -40,6 +40,9 @@ pub struct BankTransaction {
     pub reference: String,
     pub status: String,
     pub journal_entry_id: i64,
+    pub is_allocated: bool,
+    pub account_id: i64,
+    pub counterpart_id: i64,
 }
 
 pub async fn accounts(
@@ -244,4 +247,49 @@ pub async fn delete_tx(
     .execute(conn)
     .await?;
     Ok(n > 0)
+}
+
+/// Неразнесени транзакции (is_allocated=false) за auto-allocate.
+pub async fn list_unallocated(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+) -> Result<Vec<BankTransaction>, StorageError> {
+    bank_transactions::table
+        .filter(bank_transactions::company_id.eq(company_id))
+        .filter(bank_transactions::is_allocated.eq(false))
+        .order(bank_transactions::id.asc())
+        .select(BankTransaction::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
+}
+
+pub async fn mark_allocated(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    account_id: i64,
+    counterpart_id: i64,
+) -> Result<(), StorageError> {
+    diesel::update(bank_transactions::table.find(id))
+        .set((
+            bank_transactions::is_allocated.eq(true),
+            bank_transactions::account_id.eq(account_id),
+            bank_transactions::counterpart_id.eq(counterpart_id),
+        ))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+/// Референции на вече импортирани транзакции по сметка (за duplicate detection).
+pub async fn refs_for_account(
+    conn: &mut AsyncPgConnection,
+    account_id: i64,
+) -> Result<Vec<String>, StorageError> {
+    bank_transactions::table
+        .filter(bank_transactions::bank_account_id.eq(account_id))
+        .select(bank_transactions::reference)
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
 }

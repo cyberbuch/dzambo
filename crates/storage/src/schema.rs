@@ -141,6 +141,9 @@ diesel::table! {
         reference -> Text,
         status -> Text,
         journal_entry_id -> Int8,
+        is_allocated -> Bool,
+        account_id -> Int8,
+        counterpart_id -> Int8,
     }
 }
 

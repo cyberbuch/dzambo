@@ -1,0 +1,3 @@
+ALTER TABLE bank_transactions ADD COLUMN is_allocated BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bank_transactions ADD COLUMN account_id BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE bank_transactions ADD COLUMN counterpart_id BIGINT NOT NULL DEFAULT 0;
