@@ -35,7 +35,8 @@ async fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(8095);
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let bind = std::env::var("DZAMBO_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let addr: SocketAddr = format!("{bind}:{port}").parse().expect("bind адрес");
 
     tracing::info!("dzambo-server на http://{addr} (база {url})");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("слушане");

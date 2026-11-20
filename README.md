@@ -118,6 +118,26 @@ SAF-T се валидира с `xmllint --noout --schema BG_SAFT_Schema_V_1.0.1.
 - Сумите в JSON са низове; черно сторно с отрицателен знак (без обръщане Дт/Кт).
 - Миграциите са в `crates/storage/migrations/`.
 
+## Web deploy (Docker)
+
+Целият стек се вдига с `docker compose` — PostgreSQL + API сървър + Next.js фронт:
+
+```bash
+docker compose up --build
+# Фронт: http://localhost:3022  ·  API: http://localhost:8095
+```
+
+- `postgres:17-alpine` с healthcheck; данните са във volume `dzambo_pgdata`.
+- `server` (Rust, multi-stage `Dockerfile`) — миграциите са **embedded** в бинаря
+  и се прилагат автоматично при старт; bind `0.0.0.0:8095`.
+- `frontend` (Next.js **standalone**, `frontend/Dockerfile`) — `YTBUCH_API_PROXY`
+  се задава при build и сочи към вътрешния `http://server:8095`; Next proxy-ва
+  `/v1` към API-то.
+- Superadmin парола: env `DZAMBO_SUPERADMIN_PASSWORD` (по подразбиране `dzambo-admin-dev`).
+
+Сървърът bind-ва `127.0.0.1` по подразбиране (dev); за Docker/mрежа задайте
+`DZAMBO_BIND=0.0.0.0`.
+
 ## Лиценз
 
 Вътрешен проект на cyberbuch.

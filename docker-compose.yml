@@ -1,0 +1,52 @@
+# dzambo — web deploy: PostgreSQL + API сървър + Next.js фронт.
+# Стартиране: docker compose up --build
+# Фронт: http://localhost:3022  ·  API: http://localhost:8095
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: dzambo
+      POSTGRES_PASSWORD: dzambo
+      POSTGRES_DB: dzambo
+    ports:
+      - "5434:5432"
+    volumes:
+      - dzambo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dzambo -d dzambo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://dzambo:dzambo@postgres:5432/dzambo
+      DZAMBO_BIND: 0.0.0.0
+      DZAMBO_PORT: "8095"
+      DZAMBO_SUPERADMIN_PASSWORD: ${DZAMBO_SUPERADMIN_PASSWORD:-dzambo-admin-dev}
+      RUST_LOG: info
+    ports:
+      - "8095:8095"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        YTBUCH_API_PROXY: http://server:8095
+    ports:
+      - "3022:3000"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  dzambo_pgdata:
