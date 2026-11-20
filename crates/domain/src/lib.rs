@@ -13,6 +13,7 @@ pub mod reports_fs;
 pub mod reports_sheet;
 pub mod reports_trial;
 pub mod smap_def;
+pub mod totp;
 
 #[cfg(test)]
 mod tests {

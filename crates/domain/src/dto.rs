@@ -47,7 +47,7 @@ pub struct MeDto {
     pub name: String,
     pub is_super_admin: bool,
     pub role_id: i32,
-    pub totp_enabled: bool,
+    pub totp_enabled: i64,
     pub permissions: Vec<String>,
     pub companies: Vec<MembershipDto>,
 }

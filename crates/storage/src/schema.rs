@@ -20,6 +20,11 @@ diesel::table! {
         role_id -> Int4,
         totp_enabled -> Bool,
         session_ver -> Int4,
+        totp_secret -> Text,
+        totp_pending -> Text,
+        totp_last_counter -> Int8,
+        mfa_fails -> Int4,
+        mfa_lock_until -> Int8,
         created_at -> Timestamptz,
     }
 }
@@ -721,5 +726,14 @@ diesel::table! {
         credit_analytical -> Text,
         description -> Text,
         is_active -> Bool,
+    }
+}
+
+diesel::table! {
+    recovery_codes (id) {
+        id -> Int8,
+        user_id -> Int8,
+        code_hash -> Text,
+        used -> Bool,
     }
 }

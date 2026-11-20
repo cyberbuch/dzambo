@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS recovery_codes;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_lock_until;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_fails;
+ALTER TABLE users DROP COLUMN IF EXISTS totp_last_counter;
+ALTER TABLE users DROP COLUMN IF EXISTS totp_pending;
+ALTER TABLE users DROP COLUMN IF EXISTS totp_secret;

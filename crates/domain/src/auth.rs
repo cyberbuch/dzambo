@@ -88,6 +88,51 @@ pub fn random_hex(bytes: usize) -> String {
     buf.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+pub const MFA_TTL_SECS: u64 = 300;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MfaClaims {
+    pub sub: String,
+    pub iat: u64,
+    pub exp: u64,
+    pub iss: String,
+    pub mfa: bool,
+}
+
+/// Краткотраен токен (5 мин) за втората факторна стъпка.
+pub fn issue_mfa(secret: &str, sub: &str) -> Result<String, String> {
+    let iat = now_secs();
+    let claims = MfaClaims {
+        sub: sub.to_string(),
+        iat,
+        exp: iat + MFA_TTL_SECS,
+        iss: ISSUER.to_string(),
+        mfa: true,
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(|e| e.to_string())
+}
+
+pub fn mfa_subject(secret: &str, token: &str) -> Option<String> {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_issuer(&[ISSUER]);
+    let data = decode::<MfaClaims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &validation,
+    )
+    .ok()?;
+    if data.claims.mfa {
+        Some(data.claims.sub)
+    } else {
+        None
+    }
+}
+
 pub fn sha256_hex(s: &str) -> String {
     use sha2::{Digest, Sha256};
     hex::encode(Sha256::digest(s.as_bytes()))

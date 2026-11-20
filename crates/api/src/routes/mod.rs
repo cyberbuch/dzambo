@@ -21,6 +21,7 @@ pub mod nomenclatures;
 pub mod opening;
 pub mod periods;
 pub mod products;
+pub mod profile_totp;
 pub mod rates;
 pub mod related;
 pub mod reports;

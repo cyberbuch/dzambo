@@ -33,6 +33,7 @@ pub mod stock;
 pub mod stock_docs;
 pub mod stock_replay;
 pub mod stockops;
+pub mod totp_store;
 pub mod users;
 
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;

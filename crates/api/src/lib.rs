@@ -41,10 +41,20 @@ pub fn router(st: AppState) -> Router {
         .route(
             "/v1/auth/reset-password",
             post(routes::auth_flow::reset_password),
-        );
+        )
+        .route("/v1/auth/mfa", post(routes::auth::mfa));
 
     let protected = Router::new()
         .route("/v1/me", get(routes::me::me))
+        .route("/v1/me/totp/start", post(routes::profile_totp::totp_start))
+        .route(
+            "/v1/me/totp/confirm",
+            post(routes::profile_totp::totp_confirm),
+        )
+        .route(
+            "/v1/me/totp/disable",
+            post(routes::profile_totp::totp_disable),
+        )
         .route("/v1/companies", get(routes::companies::list))
         .route(
             "/v1/active-company",

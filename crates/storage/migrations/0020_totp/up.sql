@@ -1,0 +1,13 @@
+ALTER TABLE users ADD COLUMN totp_secret TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_pending TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_last_counter BIGINT NOT NULL DEFAULT -1;
+ALTER TABLE users ADD COLUMN mfa_fails INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN mfa_lock_until BIGINT NOT NULL DEFAULT 0;
+
+CREATE TABLE recovery_codes (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code_hash TEXT NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_recovery_user ON recovery_codes (user_id);

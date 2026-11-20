@@ -83,7 +83,7 @@ pub fn me_dto(u: &User, memberships: &[Membership]) -> MeDto {
         name: u.name.clone(),
         is_super_admin: u.is_super_admin,
         role_id: u.role_id,
-        totp_enabled: u.totp_enabled,
+        totp_enabled: if u.totp_enabled { 1 } else { 0 },
         permissions: if u.is_super_admin {
             vec!["*".to_string()]
         } else {

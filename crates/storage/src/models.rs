@@ -21,6 +21,11 @@ pub struct User {
     pub role_id: i32,
     pub totp_enabled: bool,
     pub session_ver: i32,
+    pub totp_secret: String,
+    pub totp_pending: String,
+    pub totp_last_counter: i64,
+    pub mfa_fails: i32,
+    pub mfa_lock_until: i64,
     pub created_at: DateTime<Utc>,
 }
 
