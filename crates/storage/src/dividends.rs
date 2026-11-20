@@ -109,8 +109,6 @@ pub async fn create_distribution(
             "няма регистрирани собственици".into(),
         ));
     }
-    let total_cents = to_cents(&total_amount);
-    let rate: f64 = tax_rate.to_string().parse().unwrap_or(5.0);
 
     let id: i64 = diesel::insert_into(dividend_distributions::table)
         .values((
@@ -125,6 +123,35 @@ pub async fn create_distribution(
         .get_result(conn)
         .await?;
 
+    let n = insert_shares(
+        conn,
+        company_id,
+        id,
+        &total_amount,
+        decision_date,
+        &tax_rate,
+    )
+    .await?;
+    Ok((id, n))
+}
+
+/// Разпределя сумата по собствениците (последният получава остатъка).
+pub async fn insert_shares(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    dist_id: i64,
+    total_amount: &BigDecimal,
+    decision_date: NaiveDate,
+    tax_rate: &BigDecimal,
+) -> Result<i64, StorageError> {
+    let owners = related::owners(conn, company_id).await?;
+    if owners.is_empty() {
+        return Err(StorageError::Connection(
+            "няма регистрирани собственици".into(),
+        ));
+    }
+    let total_cents = to_cents(total_amount);
+    let rate: f64 = tax_rate.to_string().parse().unwrap_or(5.0);
     let n = owners.len();
     let mut assigned = 0i64;
     for (i, o) in owners.iter().enumerate() {
@@ -142,7 +169,7 @@ pub async fn create_distribution(
         diesel::insert_into(dividends::table)
             .values((
                 dividends::company_id.eq(company_id),
-                dividends::distribution_id.eq(id),
+                dividends::distribution_id.eq(dist_id),
                 dividends::beneficial_owner_id.eq(o.id),
                 dividends::owner_name.eq(format!("{} {}", o.first_name_bg, o.last_name_bg)),
                 dividends::owner_egn.eq(&o.egn),
@@ -156,5 +183,101 @@ pub async fn create_distribution(
             .execute(conn)
             .await?;
     }
-    Ok((id, n as i64))
+    Ok(n as i64)
+}
+
+pub async fn get_distribution(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    id: i64,
+) -> Result<Option<Distribution>, StorageError> {
+    dividend_distributions::table
+        .filter(dividend_distributions::company_id.eq(company_id))
+        .find(id)
+        .select(Distribution::as_select())
+        .first(conn)
+        .await
+        .optional()
+        .map_err(StorageError::from)
+}
+
+pub async fn shares_for(
+    conn: &mut AsyncPgConnection,
+    dist_id: i64,
+) -> Result<Vec<Share>, StorageError> {
+    dividends::table
+        .filter(dividends::distribution_id.eq(dist_id))
+        .order(dividends::id.asc())
+        .select(Share::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
+}
+
+pub async fn any_paid(conn: &mut AsyncPgConnection, dist_id: i64) -> Result<bool, StorageError> {
+    let n: i64 = dividends::table
+        .filter(dividends::distribution_id.eq(dist_id))
+        .filter(dividends::is_paid.eq(true))
+        .count()
+        .get_result(conn)
+        .await?;
+    Ok(n > 0)
+}
+
+pub async fn set_status(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    status: &str,
+) -> Result<(), StorageError> {
+    diesel::update(dividend_distributions::table.find(id))
+        .set(dividend_distributions::status.eq(status))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn update_fields(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    year: i32,
+    total: &BigDecimal,
+    date: NaiveDate,
+    number: &str,
+    notes: &str,
+) -> Result<(), StorageError> {
+    diesel::update(dividend_distributions::table.find(id))
+        .set((
+            dividend_distributions::year.eq(year),
+            dividend_distributions::total_amount.eq(total),
+            dividend_distributions::decision_date.eq(date),
+            dividend_distributions::decision_number.eq(number),
+            dividend_distributions::notes.eq(notes),
+        ))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_shares(conn: &mut AsyncPgConnection, dist_id: i64) -> Result<(), StorageError> {
+    diesel::delete(dividends::table.filter(dividends::distribution_id.eq(dist_id)))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_distribution(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    id: i64,
+) -> Result<bool, StorageError> {
+    delete_shares(conn, id).await?;
+    let n = diesel::delete(
+        dividend_distributions::table
+            .filter(dividend_distributions::company_id.eq(company_id))
+            .find(id),
+    )
+    .execute(conn)
+    .await?;
+    Ok(n > 0)
 }

@@ -9,6 +9,7 @@ pub mod common;
 pub mod companies;
 pub mod counterparts;
 pub mod dashboard;
+pub mod dividend_distributions;
 pub mod dividends;
 pub mod fixed_assets;
 pub mod fsform;

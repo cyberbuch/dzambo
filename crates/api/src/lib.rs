@@ -394,6 +394,16 @@ pub fn router(st: AppState) -> Router {
             "/v1/dividends",
             get(routes::dividends::index).post(routes::dividends::create),
         )
+        .route(
+            "/v1/dividend-distributions",
+            get(routes::dividend_distributions::index).post(routes::dividend_distributions::create),
+        )
+        .route(
+            "/v1/dividend-distributions/{id}",
+            get(routes::dividend_distributions::show)
+                .patch(routes::dividend_distributions::update)
+                .delete(routes::dividend_distributions::delete),
+        )
         .route("/v1/saft/export", axum::routing::get(saft::export))
         .route("/v1/nomenclatures", get(routes::nomenclatures::index))
         .route("/v1/nomenclature-kinds", get(routes::nomenclatures::kinds))
