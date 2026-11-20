@@ -217,6 +217,7 @@ pub fn router(st: AppState) -> Router {
             "/v1/product-name-mappings",
             get(routes::pnmap::index).post(routes::pnmap::save),
         )
+        .route("/v1/products/cn8-suggest", post(routes::cn8::suggest))
         .route(
             "/v1/products/{id}",
             get(routes::products::show)

@@ -5,6 +5,7 @@ pub mod auth_flow;
 pub mod bank_rules;
 pub mod banks;
 pub mod closing;
+pub mod cn8;
 pub mod common;
 pub mod companies;
 pub mod counterparts;

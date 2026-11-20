@@ -2,6 +2,7 @@
 //! номенклатури на НАП, счетоводни правила и печатни модели (фази 3+).
 
 pub mod auth;
+pub mod cn8;
 pub mod dto;
 pub mod fsform;
 pub mod fsnom;
