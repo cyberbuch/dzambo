@@ -37,6 +37,7 @@ pub mod stockops;
 pub mod system_settings;
 pub mod vat;
 pub mod vat_export;
+pub mod vies;
 
 pub mod vat_ex;
 

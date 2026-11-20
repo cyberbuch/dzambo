@@ -200,6 +200,8 @@ pub fn router(st: AppState) -> Router {
             "/v1/counterparts",
             get(routes::counterparts::list).post(routes::counterparts::create),
         )
+        .route("/v1/counterparts/vies-lookup", get(routes::vies::lookup))
+        .route("/v1/counterparts/vies", post(routes::vies::create))
         .route(
             "/v1/counterparts/{id}",
             get(routes::counterparts::show)
