@@ -1,6 +1,5 @@
 target
 **/node_modules
 **/.next
-frontend-vite-skeleton
 .git
 *.log
