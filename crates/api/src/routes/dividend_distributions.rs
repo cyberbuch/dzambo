@@ -124,11 +124,7 @@ pub async fn create(
     let date = storage::invoices::parse_date(&sval(&b, "decision_date"))
         .ok_or_else(|| unproc("decision_date е задължително"))?;
     let rate = dec(&sval(&b, "tax_rate"));
-    let rate = if rate <= 0 {
-        BigDecimal::from(5)
-    } else {
-        rate
-    };
+    let rate = if rate <= 0 { BigDecimal::from(5) } else { rate };
     let mut co = conn(&st).await?;
     let (id, _n) = dv::create_distribution(
         &mut co,

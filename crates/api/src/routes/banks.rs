@@ -226,3 +226,27 @@ pub async fn post(
         Json(serde_json::json!({"ok": true, "entry_id": eid})),
     ))
 }
+
+#[derive(serde::Deserialize)]
+pub struct BulkIds {
+    pub ids: Vec<i64>,
+}
+
+pub async fn bulk_delete(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Json(b): Json<BulkIds>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (_u, company) = active_company(&st, &session.claims.sub).await?;
+    let mut c = st.pool.get().await.map_err(|_| internal())?;
+    let (mut deleted, mut failed) = (0, 0);
+    for id in b.ids.iter().take(500) {
+        match storage::banks::delete_tx(&mut c, company.id, *id).await {
+            Ok(true) => deleted += 1,
+            _ => failed += 1,
+        }
+    }
+    Ok(Json(
+        serde_json::json!({"deleted": deleted, "failed": failed}),
+    ))
+}

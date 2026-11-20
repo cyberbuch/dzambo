@@ -480,6 +480,69 @@ pub async fn bulk(
     ))
 }
 
+/// POST /v1/invoices/bulk/{action} {ids:[...]} — action от пътя (post|unpost|delete).
+pub async fn bulk_action(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Path(action): Path<String>,
+    Json(b): Json<BulkBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    if !matches!(action.as_str(), "post" | "unpost" | "delete") {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "action е post, unpost или delete",
+        ));
+    }
+    if b.ids.is_empty() || b.ids.len() > 500 {
+        return Err(ApiError::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "до 500 документа",
+        ));
+    }
+    let (_u, company) = active_company(&st, &session.claims.sub).await?;
+    let (mut posted, mut unposted, mut deleted, mut failed) = (0, 0, 0, 0);
+    let mut results = Vec::new();
+    for id in b.ids {
+        let r = match action.as_str() {
+            "post" => posting::post_invoice(&st.pool, id).await.map(|_| ()),
+            "unpost" => posting::unpost_invoice(&st.pool, id).await,
+            _ => {
+                let mut c = conn(&st).await?;
+                let owns = invoices::by_id(&mut c, id)
+                    .await?
+                    .map(|row| row.0.company_id == company.id)
+                    .unwrap_or(false);
+                if !owns {
+                    Err(ApiError::not_found("фактурата не е намерена"))
+                } else {
+                    let _ = storage::journal::delete_by_document(&mut c, id).await;
+                    storage::invoices::delete(&mut c, id)
+                        .await
+                        .map_err(ApiError::from)
+                }
+            }
+        };
+        match r {
+            Ok(()) => {
+                match action.as_str() {
+                    "post" => posted += 1,
+                    "unpost" => unposted += 1,
+                    _ => deleted += 1,
+                }
+                results.push(bulk_result(id, true, None));
+            }
+            Err(e) => {
+                failed += 1;
+                results.push(bulk_result(id, false, Some(e.detail)));
+            }
+        }
+    }
+    Ok(Json(serde_json::json!({
+        "processed": results.len(), "posted": posted, "unposted": unposted,
+        "deleted": deleted, "failed": failed, "results": results,
+    })))
+}
+
 pub async fn print(
     State(st): State<AppState>,
     Extension(session): Extension<Session>,

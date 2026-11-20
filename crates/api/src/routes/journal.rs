@@ -282,11 +282,19 @@ pub async fn delete(
     Extension(session): Extension<Session>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, ApiError> {
-    let (_u, _company) = active_company(&st, &session.claims.sub).await?;
+    let (_u, company) = active_company(&st, &session.claims.sub).await?;
     let mut c = conn(&st).await?;
-    let existing = journal::entry_with_lines(&mut c, id)
+    delete_manual(&mut c, company.id, id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_manual(c: &mut storage::DbConn, company_id: i64, id: i64) -> Result<(), ApiError> {
+    let existing = journal::entry_with_lines(c, id)
         .await?
         .ok_or_else(|| ApiError::not_found("статията не е намерена"))?;
+    if existing.0.company_id != company_id {
+        return Err(ApiError::not_found("статията не е намерена"));
+    }
     if !matches!(existing.0.document_type.as_str(), "" | "manual" | "closing") {
         return Err(ApiError::new(StatusCode::CONFLICT, "само ръчни статии"));
     }
@@ -294,10 +302,41 @@ pub async fn delete(
         storage::schema::journal_lines::table
             .filter(storage::schema::journal_lines::entry_id.eq(id)),
     )
-    .execute(&mut c)
+    .execute(c)
     .await?;
     diesel::delete(storage::schema::journal_entries::table.find(id))
-        .execute(&mut c)
+        .execute(c)
         .await?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(())
+}
+
+#[derive(serde::Deserialize)]
+pub struct BulkIds {
+    pub ids: Vec<i64>,
+}
+
+pub async fn bulk_delete(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Json(b): Json<BulkIds>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (_u, company) = active_company(&st, &session.claims.sub).await?;
+    let mut c = conn(&st).await?;
+    let (mut deleted, mut failed) = (0, 0);
+    let mut results = Vec::new();
+    for id in b.ids.iter().take(500) {
+        match delete_manual(&mut c, company.id, *id).await {
+            Ok(()) => {
+                deleted += 1;
+                results.push(serde_json::json!({"id": id, "ok": 1}));
+            }
+            Err(e) => {
+                failed += 1;
+                results.push(serde_json::json!({"id": id, "ok": 0, "error": e.detail}));
+            }
+        }
+    }
+    Ok(Json(
+        serde_json::json!({"deleted": deleted, "failed": failed, "results": results}),
+    ))
 }

@@ -266,6 +266,10 @@ pub fn router(st: AppState) -> Router {
         )
         .route("/v1/invoices/bulk", post(routes::invoices::bulk))
         .route(
+            "/v1/invoices/bulk/{action}",
+            post(routes::invoices::bulk_action),
+        )
+        .route(
             "/v1/invoices/{id}",
             get(routes::invoices::show)
                 .patch(routes::invoices::update)
@@ -286,6 +290,10 @@ pub fn router(st: AppState) -> Router {
                 .put(routes::journal::update)
                 .patch(routes::journal::update)
                 .delete(routes::journal::delete),
+        )
+        .route(
+            "/v1/journal/bulk/delete",
+            post(routes::journal::bulk_delete),
         )
         // Периоди
         .route("/v1/accounting-periods", get(routes::periods::index))
@@ -321,6 +329,10 @@ pub fn router(st: AppState) -> Router {
         .route("/v1/bank-transactions", get(routes::banks::transactions))
         .route("/v1/bank-transactions/import", post(routes::banks::import))
         .route("/v1/bank-transactions/{id}/post", post(routes::banks::post))
+        .route(
+            "/v1/bank-transactions/bulk/delete",
+            post(routes::banks::bulk_delete),
+        )
         .route(
             "/v1/bank-matching-rules",
             get(routes::bank_rules::index).post(routes::bank_rules::create),

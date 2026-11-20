@@ -212,3 +212,36 @@ pub async fn import_parsed(
     }
     Ok(n)
 }
+
+/// Изтриване на банкова транзакция (+ дневника ѝ, ако е постната).
+pub async fn delete_tx(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    id: i64,
+) -> Result<bool, StorageError> {
+    let Some(tx) = tx_by_id(conn, id).await? else {
+        return Ok(false);
+    };
+    if tx.company_id != company_id {
+        return Ok(false);
+    }
+    if tx.journal_entry_id > 0 {
+        diesel::delete(
+            crate::schema::journal_lines::table
+                .filter(crate::schema::journal_lines::entry_id.eq(tx.journal_entry_id)),
+        )
+        .execute(conn)
+        .await?;
+        diesel::delete(crate::schema::journal_entries::table.find(tx.journal_entry_id))
+            .execute(conn)
+            .await?;
+    }
+    let n = diesel::delete(
+        bank_transactions::table
+            .filter(bank_transactions::company_id.eq(company_id))
+            .find(id),
+    )
+    .execute(conn)
+    .await?;
+    Ok(n > 0)
+}
