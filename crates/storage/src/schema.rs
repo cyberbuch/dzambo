@@ -738,3 +738,14 @@ diesel::table! {
         used -> Bool,
     }
 }
+
+diesel::table! {
+    product_name_mappings (id) {
+        id -> Int8,
+        company_id -> Int8,
+        counterpart_id -> Int8,
+        scanned_name -> Text,
+        product_id -> Int8,
+        created_at -> Timestamptz,
+    }
+}

@@ -212,6 +212,10 @@ pub fn router(st: AppState) -> Router {
             get(routes::products::list).post(routes::products::create),
         )
         .route(
+            "/v1/product-name-mappings",
+            get(routes::pnmap::index).post(routes::pnmap::save),
+        )
+        .route(
             "/v1/products/{id}",
             get(routes::products::show)
                 .patch(routes::products::update)

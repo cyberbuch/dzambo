@@ -21,6 +21,7 @@ pub mod models;
 pub mod opening;
 pub mod password_reset;
 pub mod periods;
+pub mod pnmap;
 pub mod products;
 pub mod rates;
 pub mod related;
