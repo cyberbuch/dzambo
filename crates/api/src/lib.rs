@@ -55,6 +55,17 @@ pub fn router(st: AppState) -> Router {
             "/v1/me/totp/disable",
             post(routes::profile_totp::totp_disable),
         )
+        .route("/v1/me/password", post(routes::misc::change_password))
+        .route("/v1/me/email", post(routes::misc::change_email))
+        .route("/v1/addresses/parse", post(routes::misc::parse_address))
+        .route(
+            "/v1/inventory/at-location",
+            get(routes::misc::inventory_at_location),
+        )
+        .route(
+            "/v1/vat/manual",
+            axum::routing::put(routes::vat_export::manual_save),
+        )
         .route("/v1/companies", get(routes::companies::list))
         .route(
             "/v1/active-company",

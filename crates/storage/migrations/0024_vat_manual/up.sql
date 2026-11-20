@@ -1,0 +1,12 @@
+CREATE TABLE vat_manual (
+    id BIGSERIAL PRIMARY KEY,
+    company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    period TEXT NOT NULL,
+    cell_33 TEXT NOT NULL DEFAULT '0.00',
+    cell_70 TEXT NOT NULL DEFAULT '0.00',
+    cell_71 TEXT NOT NULL DEFAULT '0.00',
+    cell_80 TEXT NOT NULL DEFAULT '0.00',
+    cell_81 TEXT NOT NULL DEFAULT '0.00',
+    cell_82 TEXT NOT NULL DEFAULT '0.00',
+    UNIQUE (company_id, period)
+);

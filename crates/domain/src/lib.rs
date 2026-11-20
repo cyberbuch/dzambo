@@ -1,6 +1,7 @@
 //! Домейн на dzambo: auth (argon2/JWT), DTO-та (serde + ts-rs),
 //! номенклатури на НАП, счетоводни правила и печатни модели (фази 3+).
 
+pub mod addr;
 pub mod auth;
 pub mod cn8;
 pub mod dto;

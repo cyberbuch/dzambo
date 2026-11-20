@@ -752,3 +752,17 @@ diesel::table! {
         created_at -> Timestamptz,
     }
 }
+
+diesel::table! {
+    vat_manual (id) {
+        id -> Int8,
+        company_id -> Int8,
+        period -> Text,
+        cell_33 -> Text,
+        cell_70 -> Text,
+        cell_71 -> Text,
+        cell_80 -> Text,
+        cell_81 -> Text,
+        cell_82 -> Text,
+    }
+}

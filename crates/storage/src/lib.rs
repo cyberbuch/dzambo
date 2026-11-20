@@ -36,6 +36,7 @@ pub mod stock_replay;
 pub mod stockops;
 pub mod totp_store;
 pub mod users;
+pub mod vat_manual;
 
 use diesel_async::async_connection_wrapper::AsyncConnectionWrapper;
 use diesel_async::pooled_connection::deadpool::{Object, Pool};

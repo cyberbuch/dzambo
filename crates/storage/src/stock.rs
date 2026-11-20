@@ -219,3 +219,56 @@ pub async fn consume_fifo(
     }
     Ok(cost)
 }
+
+/// Наличности по обект: агрегирани партиди (remaining) по артикул.
+pub async fn at_location(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    location_id: i64,
+) -> Result<Vec<(i64, String, String, String, String, String)>, StorageError> {
+    let lots: Vec<(i64, BigDecimal, BigDecimal)> = inventory_lots::table
+        .filter(inventory_lots::company_id.eq(company_id))
+        .filter(inventory_lots::location_id.eq(location_id))
+        .select((
+            inventory_lots::product_id,
+            inventory_lots::remaining,
+            inventory_lots::unit_cost,
+        ))
+        .load(conn)
+        .await?;
+    let mut agg: std::collections::HashMap<i64, (BigDecimal, BigDecimal)> = Default::default();
+    for (pid, rem, cost) in lots {
+        if rem.is_zero() {
+            continue;
+        }
+        let e = agg
+            .entry(pid)
+            .or_insert_with(|| (BigDecimal::from(0), BigDecimal::from(0)));
+        e.0 += &rem;
+        e.1 += &rem * &cost;
+    }
+    let mut out = Vec::new();
+    for (pid, (qty, val)) in agg {
+        if qty.is_zero() {
+            continue;
+        }
+        let p: Option<(String, String, String)> = products::table
+            .find(pid)
+            .select((products::name, products::code, products::unit))
+            .first(conn)
+            .await
+            .optional()?;
+        let (name, code, unit) = p.unwrap_or_default();
+        let avg = &val / &qty;
+        out.push((
+            pid,
+            name,
+            code,
+            unit,
+            format!("{qty:.4}"),
+            format!("{avg:.2}"),
+        ));
+    }
+    out.sort_by(|a, b| a.1.cmp(&b.1));
+    Ok(out)
+}

@@ -20,6 +20,7 @@ pub mod journal;
 pub mod master;
 pub mod me;
 pub mod mfg;
+pub mod misc;
 pub mod nomenclatures;
 pub mod opening;
 pub mod periods;

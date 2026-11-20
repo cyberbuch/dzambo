@@ -74,3 +74,20 @@ pub async fn set_password(
         .map_err(StorageError::from)?;
     Ok(())
 }
+
+/// Смяна на email + вдигане на session_ver (sub в JWT се променя).
+pub async fn update_email(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    email: &str,
+) -> Result<(), StorageError> {
+    diesel::update(users::table.find(id))
+        .set((
+            users::email.eq(email),
+            users::session_ver.eq(users::session_ver + 1),
+        ))
+        .execute(conn)
+        .await
+        .map_err(StorageError::from)?;
+    Ok(())
+}

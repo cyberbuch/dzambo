@@ -271,7 +271,37 @@ pub async fn registers(
     let (iso, nap) = parse_period(&period)?;
     let mut c = st.pool.get().await.map_err(|_| internal())?;
     let p = build_packet(&mut c, company.id, &iso, &nap).await?;
-    Ok(Json(vatfile::packet_json(&p)))
+    let mut out = vatfile::packet_json(&p);
+    if let Some(m) = storage::vat_manual::get(&mut c, company.id, &iso).await? {
+        let cells = out.get_mut("cells").and_then(Value::as_object_mut);
+        if let Some(cells) = cells {
+            cells.insert("01-33".into(), json!(m.cell_33));
+            cells.insert("01-70".into(), json!(m.cell_70));
+            cells.insert("01-71".into(), json!(m.cell_71));
+            cells.insert("01-80".into(), json!(m.cell_80));
+            cells.insert("01-81".into(), json!(m.cell_81));
+            cells.insert("01-82".into(), json!(m.cell_82));
+        }
+    }
+    Ok(Json(out))
+}
+
+pub async fn manual_save(
+    State(st): State<AppState>,
+    Extension(session): Extension<Session>,
+    Query(q): Query<ExportQuery>,
+    Json(b): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let (_u, company) = active_company(&st, &session.claims.sub).await?;
+    let period = q
+        .period
+        .ok_or_else(|| bad("period е задължителен (YYYY-MM)"))?;
+    let (iso, _nap) = parse_period(&period)?;
+    let mut c = st.pool.get().await.map_err(|_| internal())?;
+    storage::vat_manual::save(&mut c, company.id, &iso, &b).await?;
+    Ok(Json(
+        json!({"ok": 1, "message": "Ръчните клетки са записани"}),
+    ))
 }
 
 pub async fn export(
