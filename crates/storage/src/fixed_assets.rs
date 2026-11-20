@@ -8,7 +8,7 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use crate::{
     accounts, journal,
     models::journal::{NewJournalEntry, NewJournalLine},
-    schema::{fixed_asset_categories, fixed_assets},
+    schema::{fixed_asset_categories, fixed_asset_events, fixed_assets},
     StorageError,
 };
 
@@ -265,4 +265,149 @@ pub async fn post_depreciation(
         vat_period: key,
     };
     journal::insert_entry(conn, &entry, &lines).await
+}
+
+// ---- Операции с ДМА (преоценка, преместване, консервация, брак, събития) ----
+
+pub async fn get(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    id: i64,
+) -> Result<Option<Asset>, StorageError> {
+    fixed_assets::table
+        .filter(fixed_assets::company_id.eq(company_id))
+        .find(id)
+        .select(Asset::as_select())
+        .first(conn)
+        .await
+        .optional()
+        .map_err(StorageError::from)
+}
+
+pub async fn set_cost(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    cost: &BigDecimal,
+) -> Result<(), StorageError> {
+    diesel::update(fixed_assets::table.find(id))
+        .set(fixed_assets::cost.eq(cost))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_location(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    location_id: i64,
+) -> Result<(), StorageError> {
+    diesel::update(fixed_assets::table.find(id))
+        .set(fixed_assets::location_id.eq(location_id))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_conserved(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    flag: bool,
+) -> Result<(), StorageError> {
+    diesel::update(fixed_assets::table.find(id))
+        .set(fixed_assets::is_conserved.eq(flag))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_status(
+    conn: &mut AsyncPgConnection,
+    id: i64,
+    status: &str,
+) -> Result<(), StorageError> {
+    diesel::update(fixed_assets::table.find(id))
+        .set(fixed_assets::status.eq(status))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+#[derive(Queryable, Selectable, Debug, Clone)]
+#[diesel(table_name = fixed_asset_events)]
+pub struct Event {
+    pub id: i64,
+    pub company_id: i64,
+    pub asset_id: i64,
+    pub event_type: String,
+    pub event_date: NaiveDate,
+    pub amount: BigDecimal,
+    pub prev_value: String,
+    pub location: String,
+    pub reason: String,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn add_event(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    asset_id: i64,
+    kind: &str,
+    date: NaiveDate,
+    amount: &BigDecimal,
+    prev: &str,
+    location: &str,
+    reason: &str,
+) -> Result<(), StorageError> {
+    diesel::insert_into(fixed_asset_events::table)
+        .values((
+            fixed_asset_events::company_id.eq(company_id),
+            fixed_asset_events::asset_id.eq(asset_id),
+            fixed_asset_events::event_type.eq(kind),
+            fixed_asset_events::event_date.eq(date),
+            fixed_asset_events::amount.eq(amount),
+            fixed_asset_events::prev_value.eq(prev),
+            fixed_asset_events::location.eq(location),
+            fixed_asset_events::reason.eq(reason),
+        ))
+        .execute(conn)
+        .await?;
+    Ok(())
+}
+
+pub async fn events(
+    conn: &mut AsyncPgConnection,
+    asset_id: i64,
+) -> Result<Vec<Event>, StorageError> {
+    fixed_asset_events::table
+        .filter(fixed_asset_events::asset_id.eq(asset_id))
+        .order(fixed_asset_events::id.asc())
+        .select(Event::as_select())
+        .load(conn)
+        .await
+        .map_err(StorageError::from)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn create_category(
+    conn: &mut AsyncPgConnection,
+    company_id: i64,
+    name: &str,
+    cita_category: &str,
+    min_rate: &BigDecimal,
+    max_rate: &BigDecimal,
+    default_method: &str,
+) -> Result<Category, StorageError> {
+    diesel::insert_into(fixed_asset_categories::table)
+        .values((
+            fixed_asset_categories::company_id.eq(company_id),
+            fixed_asset_categories::name.eq(name),
+            fixed_asset_categories::cita_category.eq(cita_category),
+            fixed_asset_categories::min_depreciation_rate.eq(min_rate),
+            fixed_asset_categories::max_depreciation_rate.eq(max_rate),
+            fixed_asset_categories::default_method.eq(default_method),
+        ))
+        .returning(Category::as_returning())
+        .get_result(conn)
+        .await
+        .map_err(StorageError::from)
 }

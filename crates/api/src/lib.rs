@@ -347,7 +347,35 @@ pub fn router(st: AppState) -> Router {
         )
         .route(
             "/v1/fixed-assets/{id}",
-            axum::routing::delete(routes::fixed_assets::delete),
+            axum::routing::delete(routes::fixed_assets::delete).patch(routes::asset_ops::update),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/revalue",
+            post(routes::asset_ops::revalue),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/move",
+            post(routes::asset_ops::move_asset),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/conserve",
+            post(routes::asset_ops::conserve),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/end-conserve",
+            post(routes::asset_ops::end_conserve),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/dispose",
+            post(routes::asset_ops::dispose),
+        )
+        .route(
+            "/v1/fixed-assets/{id}/events",
+            get(routes::asset_ops::events),
+        )
+        .route(
+            "/v1/fixed-asset-categories",
+            get(routes::asset_ops::categories).post(routes::asset_ops::create_category),
         )
         .route(
             "/v1/fixed-assets/depreciation/preview",

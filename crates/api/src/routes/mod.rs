@@ -1,4 +1,5 @@
 pub mod access;
+pub mod asset_ops;
 pub mod auth;
 pub mod auth_flow;
 pub mod bank_rules;

@@ -678,6 +678,7 @@ diesel::table! {
         event_type -> Text,
         event_date -> Date,
         amount -> Numeric,
+        prev_value -> Text,
         location -> Text,
         reason -> Text,
     }
