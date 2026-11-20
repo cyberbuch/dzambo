@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>dzambo — свързване</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f172a; color: #e2e8f0;
+  }
+  .card {
+    width: min(420px, 92vw); padding: 32px; border-radius: 16px;
+    background: #1e293b; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: .5px; }
+  .sub { margin: 0 0 24px; color: #94a3b8; font-size: 14px; }
+  label { display: block; font-size: 13px; color: #cbd5e1; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid #334155;
+    background: #0f172a; color: #e2e8f0; font-size: 15px; outline: none;
+  }
+  input:focus { border-color: #38bdf8; }
+  button {
+    margin-top: 18px; width: 100%; padding: 12px; border: 0; border-radius: 10px;
+    background: #0ea5e9; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  button:hover { background: #0284c7; }
+  button:disabled { opacity: .6; cursor: default; }
+  .err { margin-top: 14px; color: #f87171; font-size: 13px; min-height: 18px; }
+  .hint { margin-top: 18px; color: #64748b; font-size: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>dzambo</h1>
+    <p class="sub">Счетоводство · свързване със сървър</p>
+    <label for="addr">Адрес на сървъра</label>
+    <input id="addr" type="url" placeholder="http://127.0.0.1:3022" spellcheck="false" />
+    <button id="go">Свържи</button>
+    <div class="err" id="err"></div>
+    <p class="hint">
+      Desktop-ът е тънък клиент — зарежда интерфейса от сървъра и работи онлайн.
+      Адресът по подразбиране е локалният deploy (<code>:3022</code>).
+    </p>
+  </div>
+<script>
+  const KEY = "dzambo.server";
+  const addr = document.getElementById("addr");
+  const go = document.getElementById("go");
+  const err = document.getElementById("err");
+  addr.value = localStorage.getItem(KEY) || "http://127.0.0.1:3022";
+  function connect() {
+    let url = addr.value.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\//.test(url)) { err.textContent = "Адресът трябва да започва с http:// или https://"; return; }
+    err.textContent = ""; go.disabled = true; go.textContent = "Свързване…";
+    localStorage.setItem(KEY, url);
+    window.location.href = url;
+  }
+  go.addEventListener("click", connect);
+  addr.addEventListener("keydown", (e) => { if (e.key === "Enter") connect(); });
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 //! Tauri обвивка: опакова SPA-та, носи native команди през tauri-specta.
 //! Фаза 0: една probe команда + export на TS bindings.
 
+#[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use tauri_specta::{collect_commands, Builder};
 
